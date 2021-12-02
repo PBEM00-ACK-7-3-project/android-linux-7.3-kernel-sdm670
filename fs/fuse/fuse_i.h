@@ -1416,6 +1416,12 @@ struct fuse_dummy_io {
 	int unused;
 };
 
+struct fuse_lookup_io {
+	struct fuse_entry_out feo;
+	struct fuse_entry_bpf feb;
+	int epoch;
+};
+
 static inline void fuse_entry_bpf_put(struct fuse_entry_bpf *feb)
 {
 	if (!IS_ERR_OR_NULL(feb->backing_file)) {
@@ -1433,6 +1439,12 @@ int fuse_handle_backing(struct fuse_entry_bpf *feb, struct inode **backing_inode
 int fuse_handle_bpf_prog(struct fuse_entry_bpf *feb, struct inode *parent,
 			 struct bpf_prog **bpf);
 
+int fuse_lookup_initialize(struct fuse_bpf_args *fa, struct fuse_lookup_io *feo,
+	       struct inode *dir, struct dentry *entry, unsigned int flags);
+int fuse_lookup_backing(struct fuse_bpf_args *fa, struct inode *dir,
+			  struct dentry *entry, unsigned int flags);
+struct dentry *fuse_lookup_finalize(struct fuse_bpf_args *fa, struct inode *dir,
+			   struct dentry *entry, unsigned int flags);
 #ifdef CONFIG_FUSE_BPF
 struct fuse_err_ret {
 	void *result;
