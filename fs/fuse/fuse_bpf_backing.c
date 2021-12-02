@@ -370,6 +370,35 @@ void *fuse_canonical_path_finalize(struct fuse_bpf_args *fa,
 	return NULL;
 }
 
+int fuse_getattr_initialize(struct fuse_bpf_args *fa, struct fuse_getattr_io *fgio,
+			const struct dentry *entry, struct kstat *stat,
+			u32 request_mask, unsigned int flags)
+{
+	fgio->fgi = (struct fuse_getattr_in) {
+		.getattr_flags = flags,
+		.fh = -1, /* TODO is this OK? */
+	};
+
+	fgio->fao = (struct fuse_attr_out) {0};
+
+	*fa = (struct fuse_bpf_args) {
+		.nodeid = get_node_id(entry->d_inode),
+		.opcode = FUSE_GETATTR,
+		.in_numargs = 1,
+		.out_numargs = 1,
+		.in_args[0] = (struct fuse_bpf_in_arg) {
+			.size = sizeof(fgio->fgi),
+			.value = &fgio->fgi,
+		},
+		.out_args[0] = (struct fuse_bpf_arg) {
+			.size = sizeof(fgio->fao),
+			.value = &fgio->fao,
+		},
+	};
+
+	return 0;
+}
+
 static void fuse_stat_to_attr(struct fuse_conn *fc, struct inode *inode,
 		struct kstat *stat, struct fuse_attr *attr)
 {
@@ -404,6 +433,134 @@ static void fuse_stat_to_attr(struct fuse_conn *fc, struct inode *inode,
 		blkbits = inode->i_sb->s_blocksize_bits;
 
 	attr->blksize = 1 << blkbits;
+}
+
+int fuse_getattr_backing(struct fuse_bpf_args *fa,
+		const struct dentry *entry, struct kstat *stat,
+			u32 request_mask, unsigned int flags)
+{
+	struct path *backing_path =
+		&get_fuse_dentry(entry)->backing_path;
+	struct inode *backing_inode;
+	struct fuse_attr_out *fao = fa->out_args[0].value;
+	struct kstat tmp;
+	int err;
+
+	if (!backing_path->dentry)
+		return -EBADF;
+	backing_inode = d_inode(backing_path->dentry);
+
+	if (!stat)
+		stat = &tmp;
+
+	err = vfs_getattr(backing_path, stat,
+			  request_mask | STATX_BASIC_STATS, flags);
+
+	if (!err)
+		fuse_stat_to_attr(get_fuse_conn(entry->d_inode),
+				  backing_inode, stat, &fao->attr);
+
+	return err;
+}
+
+void *fuse_getattr_finalize(struct fuse_bpf_args *fa,
+			const struct dentry *entry, struct kstat *stat,
+			u32 request_mask, unsigned int flags)
+{
+	struct fuse_attr_out *outarg = fa->out_args[0].value;
+	struct inode *inode = entry->d_inode;
+	u64 attr_version = fuse_get_attr_version(get_fuse_mount(inode)->fc);
+
+	/*
+	 * If backing getattr returned an error (such as a transient -ENOENT or
+	 * -ESTALE), do not pass uninitialized/zeroed attributes to finalize_attr,
+	 * as fuse_invalid_attr() will permanently mark the inode bad (FUSE_I_BAD).
+	 */
+	if (fa->error_in)
+		return ERR_PTR(fa->error_in);
+
+	return ERR_PTR(finalize_attr(&nop_mnt_idmap, inode, outarg,
+				     attr_version, stat));
+}
+
+int fuse_statfs_initialize(
+		struct fuse_bpf_args *fa, struct fuse_statfs_out *fso,
+		struct dentry *dentry, struct kstatfs *buf)
+{
+	*fso = (struct fuse_statfs_out) {0};
+	*fa = (struct fuse_bpf_args) {
+		.nodeid = get_node_id(d_inode(dentry)),
+		.opcode = FUSE_STATFS,
+		.out_numargs = 1,
+		.out_args[0].size = sizeof(*fso),
+		.out_args[0].value = fso,
+	};
+
+	return 0;
+}
+
+int fuse_statfs_backing(
+		struct fuse_bpf_args *fa,
+		struct dentry *dentry, struct kstatfs *buf)
+{
+	int err = 0;
+	struct path backing_path;
+	struct fuse_statfs_out *fso = fa->out_args[0].value;
+
+	get_fuse_backing_path(dentry, &backing_path);
+	if (!backing_path.dentry)
+		return -EBADF;
+	err = vfs_statfs(&backing_path, buf);
+	path_put(&backing_path);
+	buf->f_type = FUSE_SUPER_MAGIC;
+
+	//TODO Provide postfilter opportunity to modify
+	if (!err)
+		convert_statfs_to_fuse(&fso->st, buf);
+
+	return err;
+}
+
+void *fuse_statfs_finalize(
+		struct fuse_bpf_args *fa,
+		struct dentry *dentry, struct kstatfs *buf)
+{
+	struct fuse_statfs_out *fso = fa->out_args[0].value;
+
+	if (!fa->error_in)
+		convert_fuse_statfs(buf, &fso->st);
+	return NULL;
+}
+
+int fuse_access_initialize(struct fuse_bpf_args *fa, struct fuse_access_in *fai,
+			    struct inode *inode, int mask)
+{
+	*fai = (struct fuse_access_in) {
+		.mask = mask,
+	};
+
+	*fa = (struct fuse_bpf_args) {
+		.opcode = FUSE_ACCESS,
+		.nodeid = get_node_id(inode),
+		.in_numargs = 1,
+		.in_args[0].size = sizeof(*fai),
+		.in_args[0].value = fai,
+	};
+
+	return 0;
+}
+
+int fuse_access_backing(struct fuse_bpf_args *fa, struct inode *inode, int mask)
+{
+	struct fuse_inode *fi = get_fuse_inode(inode);
+	const struct fuse_access_in *fai = fa->in_args[0].value;
+
+	return inode_permission(&nop_mnt_idmap, fi->backing_inode, fai->mask);
+}
+
+void *fuse_access_finalize(struct fuse_bpf_args *fa, struct inode *inode, int mask)
+{
+	return NULL;
 }
 
 int __init fuse_bpf_init(void)
