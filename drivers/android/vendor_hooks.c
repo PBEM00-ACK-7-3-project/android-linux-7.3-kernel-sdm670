@@ -6,6 +6,7 @@
  * Copyright 2020 Google LLC
  */
 #include <linux/iova.h>
+#include <linux/pm_qos.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/hooks/vendor_hooks.h>
@@ -30,6 +31,7 @@
 #include <trace/hooks/mpam.h>
 #include <trace/hooks/net.h>
 #include <trace/hooks/pm_domain.h>
+#include <trace/hooks/power.h>
 #include <trace/hooks/printk.h>
 #include <trace/hooks/psi.h>
 #include <trace/hooks/reboot.h>
@@ -89,6 +91,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpufreq_target);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpuidle_psci_enter);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpuidle_psci_exit);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_send_sig_info);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_freq_qos_add_request);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_freq_qos_remove_request);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_freq_qos_update_request);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gic_set_affinity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_iommu_iovad_alloc_iova);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_iommu_iovad_free_iova);
