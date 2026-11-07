@@ -770,10 +770,31 @@ static int fuse_uring_copy_from_ring(struct fuse_req *req,
 	int err;
 	struct fuse_uring_ent_in_out ring_in_out;
 
+	/*
+	 * FUSE_CANONICAL_PATH replies require kern_path() into
+	 * args->canonical_path, which is not supported over io_uring.
+	 * Error replies (such as -ENOSYS) are handled before reaching here.
+	 */
+	if (req->in.h.opcode == FUSE_CANONICAL_PATH)
+		return -EOPNOTSUPP;
+
 	err = copy_header_from_ring(ent, FUSE_URING_HEADER_RING_ENT,
 				    &ring_in_out, sizeof(ring_in_out));
 	if (err)
 		return err;
+
+	/*
+	 * Lookup replies carrying fuse_entry_bpf_out require fget() on daemon
+	 * file descriptors, which is not supported over io_uring.
+	 */
+	if (req->in.h.opcode == FUSE_LOOKUP ||
+	    req->in.h.opcode == (FUSE_LOOKUP | FUSE_POSTFILTER)) {
+		if (ring_in_out.payload_sz == sizeof(struct fuse_entry_out) +
+					      sizeof(struct fuse_entry_bpf_out))
+			return -EOPNOTSUPP;
+		if (ring_in_out.payload_sz > sizeof(struct fuse_entry_out))
+			return -EINVAL;
+	}
 
 	err = setup_fuse_copy_state(&cs, req, ent, ITER_SOURCE, &iter,
 				    issue_flags);

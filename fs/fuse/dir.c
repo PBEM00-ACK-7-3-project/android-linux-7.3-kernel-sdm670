@@ -637,10 +637,13 @@ static int fuse_dentry_canonical_path(const struct path *path,
 	FUSE_ARGS(args);
 	char *path_name;
 	int err;
-
 #ifdef CONFIG_FUSE_BPF
 	struct fuse_err_ret fer;
+#endif
 
+	*canonical_path = (struct path) {};
+
+#ifdef CONFIG_FUSE_BPF
 	fer = fuse_bpf_backing(inode, struct fuse_dummy_io,
 			       fuse_canonical_path_initialize,
 			       fuse_canonical_path_backing,
