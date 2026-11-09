@@ -28,6 +28,14 @@
   "kernel-presubmit": [
     {
       "name": "CtsWifiBroadcastsHostTestCases"
+    },
+    {
+      "name": "selftests",
+      "options": [
+        {
+          "include-filter": "kselftest_fuse_bpf_test"
+        }
+      ]
     }
   ],
   "presubmit": [
