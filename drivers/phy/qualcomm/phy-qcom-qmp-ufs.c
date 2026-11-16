@@ -2425,6 +2425,12 @@ static const struct of_device_id qmp_ufs_of_match_table[] = {
 		.compatible = "qcom,sdm845-qmp-ufs-phy",
 		.data = &sdm845_ufsphy_cfg,
 	}, {
+		/* PBEM00: stock dtbo overlay forces "qcom,ufs-phy-qmp-v3"
+		 * (same CLO binding also used by sdm845 boards), so alias it
+		 * to the sdm845 QMP UFS PHY config. */
+		.compatible = "qcom,ufs-phy-qmp-v3",
+		.data = &sdm845_ufsphy_cfg,
+	}, {
 		.compatible = "qcom,sm6115-qmp-ufs-phy",
 		.data = &sm6115_ufsphy_cfg,
 	}, {

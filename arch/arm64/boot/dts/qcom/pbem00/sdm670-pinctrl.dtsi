@@ -12,15 +12,15 @@
 
 &soc {
 	tlmm: pinctrl@03400000 {
-		compatible = "qcom,sdm670-pinctrl";
+		compatible = "qcom,sdm670-tlmm";
 		reg = <0x03400000 0xc00000>, <0x179900F0 0x60>;
 		reg-names = "pinctrl_regs", "spi_cfg_regs";
-		interrupts = <0 208 0>;
+		interrupts = <0 208 4>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		interrupt-parent = <&pdc>;
+		gpio-ranges = <&tlmm 0 0 151>;
 
 		key_vol_up {
 			key_vol_up_default: key_vol_up_default {

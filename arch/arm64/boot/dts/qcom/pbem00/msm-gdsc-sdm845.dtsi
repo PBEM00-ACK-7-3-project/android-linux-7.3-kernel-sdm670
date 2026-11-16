@@ -37,12 +37,18 @@
 		status = "disabled";
 	};
 
-	ufs_phy_gdsc: qcom,gdsc@0x177004 {
-		compatible = "qcom,gdsc";
+	/* PBEM00: the stock dtbo overlay wires ufshc vdd-hba-supply to this
+	 * GDSC. Mainline has no standalone CLO gdsc driver (GCC registers the
+	 * GDSCs as genpd instead), so keep the overlay-visible label alive as
+	 * an always-on fixed regulator; the UFS PHY GDSC simply stays in the
+	 * state XBL left it in. */
+	ufs_phy_gdsc: ufs-phy-gdsc-regulator {
+		compatible = "regulator-fixed";
 		regulator-name = "ufs_phy_gdsc";
-		reg = <0x177004 0x4>;
-		qcom,poll-cfg-gdscr;
-		status = "disabled";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		regulator-boot-on;
 	};
 
 	usb30_prim_gdsc: qcom,gdsc@0x10f004 {
