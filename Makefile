@@ -416,7 +416,9 @@ include $(srctree)/scripts/subarch.include
 # Alternatively CROSS_COMPILE can be set in the environment.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
+# === PBEM00 ARCH pin (2026-11-15): dedicated arm64-only build tree; override
+# rejects even `make ARCH=<other>`/env. Toolchain pins live further below.
+override ARCH		= arm64
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -457,6 +459,14 @@ CONFIG_SHELL := sh
 HOST_LFS_CFLAGS := $(shell getconf LFS_CFLAGS 2>/dev/null)
 HOST_LFS_LDFLAGS := $(shell getconf LFS_LDFLAGS 2>/dev/null)
 HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
+
+# === PBEM00 toolchain pin (2026-11-15, clang23 hard-pin; in-tree build, O=out banned) ===
+# Toolchain roots are pinned through $(HOME)-relative indirection so the tree
+# carries no machine-absolute paths; point K73_PREBUILTS elsewhere to relocate.
+K73_PREBUILTS	?= $(HOME)/prebuilts
+# LLVM prefix form: CC/LD/AR/LLVM_LINK/NM/OBJCOPY/OBJDUMP/READELF/STRIP/HOSTCC/HOSTCXX
+# all land in the clang23 (r614150, 23.0.1) bin dir; override rejects even `make LLVM=1`/env.
+override LLVM		= $(K73_PREBUILTS)/clang/host/linux-x86/clang-r614150/bin/
 
 ifneq ($(LLVM),)
 ifneq ($(filter %/,$(LLVM)),)
@@ -559,12 +569,21 @@ OBJDUMP		= $(CROSS_COMPILE)objdump
 READELF		= $(CROSS_COMPILE)readelf
 STRIP		= $(CROSS_COMPILE)strip
 endif
-RUSTC		= rustc
-RUSTDOC		= rustdoc
-RUSTFMT		= rustfmt
-CLIPPY_DRIVER	= clippy-driver
-BINDGEN		= bindgen
-PAHOLE		= pahole
+# === PBEM00 toolchain pin (2026-11-15, rust hard-pin) ===
+# rust = 1.98.1.p1 (Android Rust Toolchain 16912885, main-kernel; same rustc commit
+# 48a229cea as 1.98.1, rebuilt). Upstream ships NO bindgen in the bundle: bindgen-cli
+# 0.73.2 is self-built (cargo from .p1, tools/_build_k73_bindgen.sh) against clang23's
+# own lib/libclang.so via clang-sys runtime loading -> frontend matches the kernel CC
+# generation (upstream Kleaf/rules_rust equivalent). LIBCLANG_PATH feeds clang-sys.
+override RUSTC		= $(K73_PREBUILTS)/rust-toolchain/linux-x86/1.98.1.p1/bin/rustc
+override RUSTDOC	= $(K73_PREBUILTS)/rust-toolchain/linux-x86/1.98.1.p1/bin/rustdoc
+override RUSTFMT	= $(K73_PREBUILTS)/rust-toolchain/linux-x86/1.98.1.p1/bin/rustfmt
+override CLIPPY_DRIVER	= $(K73_PREBUILTS)/rust-toolchain/linux-x86/1.98.1.p1/bin/clippy-driver
+override BINDGEN	= $(K73_PREBUILTS)/bindgen/clang23/bin/bindgen
+override HOSTRUSTC	= $(K73_PREBUILTS)/rust-toolchain/linux-x86/1.98.1.p1/bin/rustc
+override PAHOLE		= $(K73_PREBUILTS)/pahole/pahole
+override LIBCLANG_PATH	= $(K73_PREBUILTS)/clang/host/linux-x86/clang-r614150/lib
+export LIBCLANG_PATH
 RESOLVE_BTFIDS	= $(objtree)/tools/bpf/resolve_btfids/resolve_btfids
 LEX		= flex
 YACC		= bison
