@@ -68,6 +68,7 @@ struct rcu_tasks_percpu {
  * @tasks_gp_seq: Number of grace periods completed since boot in upper bits.
  * @n_ipis: Number of IPIs sent to encourage grace periods to end.
  * @kthread_ptr: This flavor's grace-period/callback-invocation kthread.
+ * @kthread_ready: Completion signaled when @kthread_ptr is published.
  * @lazy_jiffies: Number of jiffies to allow callbacks to be lazy.
  * @pregp_func: This flavor's pre-grace-period function (optional).
  * @pertask_func: This flavor's per-task scan function (optional).
@@ -102,6 +103,7 @@ struct rcu_tasks {
 	unsigned long tasks_gp_seq;
 	unsigned long n_ipis;
 	struct task_struct *kthread_ptr;
+	struct completion kthread_ready;
 	unsigned long lazy_jiffies;
 	rcu_tasks_gp_func_t gp_func;
 	pregp_func_t pregp_func;
@@ -138,6 +140,7 @@ static struct rcu_tasks rt_name =							\
 	.cbs_wait = __RCUWAIT_INITIALIZER(rt_name.wait),				\
 	.cbs_gbl_lock = __RAW_SPIN_LOCK_UNLOCKED(rt_name.cbs_gbl_lock),			\
 	.tasks_gp_mutex = __MUTEX_INITIALIZER(rt_name.tasks_gp_mutex),			\
+	.kthread_ready = COMPLETION_INITIALIZER(rt_name.kthread_ready),			\
 	.gp_func = gp,									\
 	.call_func = call,								\
 	.wait_state = TASK_UNINTERRUPTIBLE,						\
@@ -644,6 +647,7 @@ static int __noreturn rcu_tasks_kthread(void *arg)
 	/* Run on housekeeping CPUs by default.  Sysadm can move if desired. */
 	housekeeping_affine(current, HK_TYPE_RCU);
 	smp_store_release(&rtp->kthread_ptr, current); // Let GPs start!
+	complete(&rtp->kthread_ready);
 
 	/*
 	 * Each pass through the following loop makes one check for
@@ -685,6 +689,23 @@ static void __init rcu_spawn_tasks_kthread_generic(struct rcu_tasks *rtp)
 	t = kthread_run(rcu_tasks_kthread, rtp, "%s_kthread", rtp->kname);
 	if (WARN_ONCE(IS_ERR(t), "%s: Could not start %s grace-period kthread, OOM is now expected behavior\n", __func__, rtp->name))
 		return;
+
+	/*
+	 * Wait for the kthread to publish ->kthread_ptr before returning.
+	 * A synchronize_rcu_tasks*() call winning the race against the
+	 * kthread's first schedule would take the mid-boot inline-GP path
+	 * while holding ->tasks_gp_mutex; the kthread would then block on
+	 * that same mutex without ever reaching a voluntary context
+	 * switch, remaining an eternal RCU-tasks holdout.  Neither side
+	 * can then make progress, wedging the caller forever.
+	 *
+	 * Bounded so that a kthread which cannot run at all falls back to
+	 * the historical mid-boot inline-GP behavior.
+	 */
+	if (!wait_for_completion_timeout(&rtp->kthread_ready,
+					 msecs_to_jiffies(2000)))
+		WARN_ONCE(1, "%s: %s GP kthread failed to start in time\n",
+			  __func__, rtp->name);
 }
 
 #ifndef CONFIG_TINY_RCU
