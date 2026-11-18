@@ -1168,16 +1168,14 @@
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
 
-		reg = <0x6867000 0x10>,
-		      <0x6861000 0x1000>;
-		reg-names = "funnel-base-dummy", "funnel-base-real";
+		/* No CLO "funnel-base-dummy" window: it sat at 0x6867000 and
+		 * collided with cti@6867000, wedging its AMBA resource. */
+		reg = <0x6861000 0x1000>;
 
 		coresight-name = "coresight-funnel-turing-1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
-
-		qcom,duplicate-funnel;
 
 		ports {
 			#address-cells = <1>;
