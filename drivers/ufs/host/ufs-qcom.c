@@ -439,8 +439,20 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	bool reenable_intr;
 
-	if (!host->core_reset)
+	if (!host->core_reset) {
+		/* PBEM00: no DT reset wired — pulse the PHY soft reset via
+		 * REG_UFS_CFG1 BIT(1), the only PHY reset path this
+		 * platform's CLO lineage ever exercised (4.9 OSS tree
+		 * drivers/scsi/ufs/ufs-qcom.h ufs_qcom_assert_reset).
+		 * The GCC BCR route wedges the platform. */
+		ufshcd_rmwl(hba, 0x2, 0x2, REG_UFS_CFG1);
+		mb();
+		usleep_range(1000, 1100);
+		ufshcd_rmwl(hba, 0x2, 0x0, REG_UFS_CFG1);
+		mb();
+		usleep_range(1000, 1100);
 		return 0;
+	}
 
 	reenable_intr = hba->is_irq_enabled;
 	ufshcd_disable_irq(hba);
