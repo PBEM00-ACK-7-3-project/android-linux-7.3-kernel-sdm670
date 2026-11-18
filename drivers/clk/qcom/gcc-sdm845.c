@@ -3663,9 +3663,9 @@ static struct clk_regmap *gcc_sdm670_clocks[] = {
 	[GPLL6] = &gpll6.clkr,
 	[GCC_CPUSS_DVM_BUS_CLK] = &gcc_cpuss_dvm_bus_clk.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
-	[GCC_QSPI_CORE_CLK_SRC] = &gcc_qspi_core_clk_src.clkr,
-	[GCC_QSPI_CORE_CLK] = &gcc_qspi_core_clk.clkr,
-	[GCC_QSPI_CNOC_PERIPH_AHB_CLK] = &gcc_qspi_cnoc_periph_ahb_clk.clkr,
+	/* PBEM00: qspi clocks omitted (CLO-aligned) — the board has no QSPI,
+	 * its island is power-gated and reading gcc_qspi_core_clk_src's CFG
+	 * at registration raises a fatal synchronous external abort. */
 };
 
 static struct clk_regmap *gcc_sdm845_clocks[] = {
