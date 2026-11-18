@@ -406,7 +406,16 @@ static struct platform_driver qcom_icc_bcm_voter_driver = {
 		.of_match_table = bcm_voter_of_match,
 	},
 };
-module_platform_driver(qcom_icc_bcm_voter_driver);
+/*
+ * PBEM00: core_initcall; bcm-voter is an apps_rsc child born at rsc
+ * populate — L1 makes it bind inline so the NoC probes (which look up its
+ * drvdata) can complete inside the same populate window.
+ */
+static int __init qcom_icc_bcm_voter_init(void)
+{
+	return platform_driver_register(&qcom_icc_bcm_voter_driver);
+}
+core_initcall(qcom_icc_bcm_voter_init);
 
 MODULE_AUTHOR("David Dai <daidavid1@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm BCM Voter interconnect driver");

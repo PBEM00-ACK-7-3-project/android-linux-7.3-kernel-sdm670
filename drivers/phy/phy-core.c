@@ -1302,7 +1302,10 @@ static int __init phy_core_init(void)
 
 	return 0;
 }
-device_initcall(phy_core_init);
+/* PBEM00: subsys floor for qmp-ufs (also subsys, drivers/phy ahead of
+ * regulator/scsi/ufs in link order); device_initcall would leave the phy
+ * class unregistered when qmp probes at subsys level. */
+subsys_initcall(phy_core_init);
 
 static void __exit phy_core_exit(void)
 {

@@ -1525,7 +1525,17 @@ static struct platform_driver qnoc_driver = {
 		.sync_state = icc_sync_state,
 	},
 };
-module_platform_driver(qnoc_driver);
+/*
+ * PBEM00: core_initcall. The NoC devices sit between apps_rsc and
+ * ufshc/ufsphy in DT order, so an L1 driver registers the interconnect nodes
+ * inline during populate (~1.8s), letting ufshc's icc paths resolve at its
+ * subsys-level first probe instead of deferring to the late flush.
+ */
+static int __init qnoc_sdm670_init(void)
+{
+	return platform_driver_register(&qnoc_driver);
+}
+core_initcall(qnoc_sdm670_init);
 
 MODULE_DESCRIPTION("Qualcomm SDM670 NoC driver");
 MODULE_LICENSE("GPL");

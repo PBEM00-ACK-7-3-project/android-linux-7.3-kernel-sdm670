@@ -2132,12 +2132,23 @@ MODULE_DEVICE_TABLE(of, rpmh_regulator_match_table);
 static struct platform_driver rpmh_regulator_driver = {
 	.driver = {
 		.name = "qcom-rpmh-regulator",
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table	= of_match_ptr(rpmh_regulator_match_table),
 	},
 	.probe = rpmh_regulator_probe,
 };
-module_platform_driver(rpmh_regulator_driver);
+/*
+ * PBEM00: core_initcall AND synchronous probing. Rails are children of
+ * apps_rsc born inside rsc probe's devm_of_platform_populate; a sync
+ * core-level driver binds them inline at device-add time in strict DT
+ * order, so rail registration and the determine_initial_mode sync rpmh
+ * reads land well before the late-initcall sweeps. Prerequisite for ufshc
+ * first-probe-no-defer.
+ */
+static int __init rpmh_regulator_init(void)
+{
+	return platform_driver_register(&rpmh_regulator_driver);
+}
+core_initcall(rpmh_regulator_init);
 
 MODULE_DESCRIPTION("Qualcomm RPMh regulator driver");
 MODULE_LICENSE("GPL v2");

@@ -379,7 +379,6 @@ static struct platform_driver regulator_fixed_voltage_driver = {
 	.probe		= reg_fixed_voltage_probe,
 	.driver		= {
 		.name		= "reg-fixed-voltage",
-		.probe_type	= PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = of_match_ptr(fixed_of_match),
 	},
 };
@@ -388,7 +387,12 @@ static int __init regulator_fixed_voltage_init(void)
 {
 	return platform_driver_register(&regulator_fixed_voltage_driver);
 }
-subsys_initcall(regulator_fixed_voltage_init);
+/* PBEM00: core_initcall AND synchronous probing so the root-level fixed
+ * regulators (vph_pwr/s2b/ufs_phy_gdsc) bind inline at their populate-walk
+ * position, in strict DT order ahead of the rpmh regulator containers.
+ * The PROBE_PREFER_ASYNCHRONOUS worker queue reordered them after the
+ * rails and fw_devlink then held the regulator devices until late. */
+core_initcall(regulator_fixed_voltage_init);
 
 static void __exit regulator_fixed_voltage_exit(void)
 {

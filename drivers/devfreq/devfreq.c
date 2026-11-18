@@ -2056,7 +2056,11 @@ static int __init devfreq_init(void)
 
 	return 0;
 }
-subsys_initcall(devfreq_init);
+/* PBEM00: core — ufshc moved to subsys and ufshcd_add_lus hard-fails
+ * without the devfreq class; drivers/devfreq links after drivers/ufs, so
+ * a subsys_initcall here would register the class after subsys-level
+ * consumers probe. Register it at core level instead. */
+core_initcall(devfreq_init);
 
 /*
  * The following are helper functions for devfreq user device drivers with
