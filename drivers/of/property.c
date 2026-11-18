@@ -1415,7 +1415,12 @@ DEFINE_SIMPLE_PROP(access_controllers, "access-controllers", "#access-controller
 DEFINE_SIMPLE_PROP(pses, "pses", "#pse-cells")
 DEFINE_SIMPLE_PROP(power_supplies, "power-supplies", NULL)
 DEFINE_SIMPLE_PROP(mmc_pwrseq, "mmc-pwrseq", NULL)
-DEFINE_SUFFIX_PROP(regulators, "-supply", NULL)
+/* PBEM00: dropped the "-supply" fw_devlink binding. Regulator supply
+ * ordering is owned by the regulator core (lazy parent resolution at first
+ * enable); the device-level fw_devlink gating on -supply edges forced the
+ * PBEM00 rpmh regulator containers to silently defer behind each other and
+ * behind root-level fixed regulators, cascading every rail registration into
+ * the 4.2s deep-water window. */
 DEFINE_SUFFIX_PROP(gpio, "-gpio", "#gpio-cells")
 
 static struct device_node *parse_pinctrl_n(struct device_node *np,
@@ -1571,7 +1576,6 @@ static const struct supplier_bindings of_supplier_bindings[] = {
 	{ .parse_prop = parse_interrupts, },
 	{ .parse_prop = parse_interrupt_map, },
 	{ .parse_prop = parse_access_controllers, },
-	{ .parse_prop = parse_regulators, },
 	{ .parse_prop = parse_gpio, },
 	{ .parse_prop = parse_gpios, },
 	{
