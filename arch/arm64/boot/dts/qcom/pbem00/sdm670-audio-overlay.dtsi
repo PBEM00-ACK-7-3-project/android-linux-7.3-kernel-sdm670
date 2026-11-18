@@ -167,10 +167,12 @@
 &soc {
 	wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 	};
 
 	cdc_pdm_gpios: cdc_pdm_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_pdm_clk_active &cdc_pdm_sync_active
 			     &cdc_pdm_rx0_active &cdc_pdm_rx1_2_active
@@ -183,6 +185,7 @@
 
 	cdc_comp_gpios: cdc_comp_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_rx0_comp_active &cdc_rx1_comp_active>;
 		pinctrl-1 = <&cdc_rx0_comp_sleep &cdc_rx1_comp_sleep>;
@@ -191,6 +194,7 @@
 
 	cdc_dmic_gpios: cdc_dmic_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic12_gpios_active
 			     &cdc_dmic34_gpios_active>;
@@ -202,6 +206,7 @@
 	cdc_sdw_gpios: sdw_clk_data_pinctrl {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
 		pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
@@ -209,6 +214,7 @@
 
 	sec_mi2s_gpios: sec_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&sec_mi2s_bclk_active &sec_mi2s_ws_active &sec_mi2s_sd0_active>;
 		pinctrl-1 = <&sec_mi2s_bclk_sleep &sec_mi2s_ws_sleep &sec_mi2s_sd0_sleep>;
@@ -218,6 +224,7 @@
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
 		pinctrl-1 = <&spkr_1_sd_n_sleep>;
@@ -226,6 +233,7 @@
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_2_sd_n_active>;
 		pinctrl-1 = <&spkr_2_sd_n_sleep>;
@@ -318,6 +326,7 @@
 	wcd_rst_gpio: msm_cdc_pinctrl@64 {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&lpi_cdc_reset_active>;
 		pinctrl-1 = <&lpi_cdc_reset_sleep>;
@@ -341,6 +350,7 @@
 	aqt_rst_gpio: aqt_cdc_pinctrl {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&aqt_rst_active>;
 		pinctrl-1 = <&aqt_rst_idle>;
@@ -349,6 +359,7 @@
 	tert_mi2s_gpios: tert_mi2s_pinctrl {
 		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
+		#gpio-cells = <0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&ter_i2s_data0_active &ter_i2s_data1_active
 			     &ter_i2s_sck_active>;
