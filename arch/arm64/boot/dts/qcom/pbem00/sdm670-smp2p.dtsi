@@ -13,28 +13,75 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
-	qcom,smp2p-modem@1799000c {
+	/* APCS outbound doorbell register (0x1799000c) exposed as a syscon so
+	 * the smp2p devices can kick the remote processors via qcom,ipc. */
+	apcs_glb: syscon@17990000 {
+		compatible = "syscon";
+		reg = <0x17990000 0x1000>;
+	};
+
+	/* Mainline qcom,smp2p binding. The CLO msm_smp2p form (reg +
+	 * qcom,irq-bitmask) has no 7.3 driver; doorbell bits and GIC lines
+	 * are carried over from the CLO nodes, smem item ids follow the
+	 * SMEM_SMP2P_*_BASE + pid layout shared across this SoC family. */
+	smp2p_modem: smp2p-modem {
 		compatible = "qcom,smp2p";
-		reg = <0x1799000c 0x4>;
-		qcom,remote-pid = <1>;
-		qcom,irq-bitmask = <0x4000>;
+		qcom,smem = <435>, <428>;
 		interrupts = <GIC_SPI 451 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs_glb 0xc 14>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
-	qcom,smp2p-adsp@1799000c {
+	smp2p_adsp: smp2p-adsp {
 		compatible = "qcom,smp2p";
-		reg = <0x1799000c 0x4>;
-		qcom,remote-pid = <2>;
-		qcom,irq-bitmask = <0x4000000>;
+		qcom,smem = <443>, <429>;
 		interrupts = <GIC_SPI 172 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs_glb 0xc 26>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		adsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		adsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
-	qcom,smp2p-cdsp@1799000c {
+	smp2p_cdsp: smp2p-cdsp {
 		compatible = "qcom,smp2p";
-		reg = <0x1799000c 0x4>;
-		qcom,remote-pid = <5>;
-		qcom,irq-bitmask = <0x40>;
+		qcom,smem = <94>, <432>;
 		interrupts = <GIC_SPI 576 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs_glb 0xc 6>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <5>;
+
+		cdsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		cdsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 
