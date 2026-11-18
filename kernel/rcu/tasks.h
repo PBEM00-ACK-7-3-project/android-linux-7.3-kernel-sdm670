@@ -69,6 +69,7 @@ struct rcu_tasks_percpu {
  * @n_ipis: Number of IPIs sent to encourage grace periods to end.
  * @kthread_ptr: This flavor's grace-period/callback-invocation kthread.
  * @kthread_ready: Completion signaled when @kthread_ptr is published.
+ * @kthread_spawn_ok: Kthread spawn started; synchronize waits via callback queue.
  * @lazy_jiffies: Number of jiffies to allow callbacks to be lazy.
  * @pregp_func: This flavor's pre-grace-period function (optional).
  * @pertask_func: This flavor's per-task scan function (optional).
@@ -104,6 +105,7 @@ struct rcu_tasks {
 	unsigned long n_ipis;
 	struct task_struct *kthread_ptr;
 	struct completion kthread_ready;
+	bool kthread_spawn_ok; // Spawn started: synchronize must use callback queue.
 	unsigned long lazy_jiffies;
 	rcu_tasks_gp_func_t gp_func;
 	pregp_func_t pregp_func;
@@ -673,11 +675,24 @@ static void synchronize_rcu_tasks_generic(struct rcu_tasks *rtp)
 			 "synchronize_%s() called too soon", rtp->name))
 		return;
 
-	// If the grace-period kthread is running, use it.
-	if (READ_ONCE(rtp->kthread_ptr)) {
+	/*
+	 * If the grace-period kthread has been spawned or is being spawned,
+	 * wait through the callback queue, exactly as when ->kthread_ptr is
+	 * already published.  An inline mid-boot GP holds ->tasks_gp_mutex
+	 * while the newly created kthread might block on that same mutex
+	 * before the holdout snapshot is taken, leaving it an eternal
+	 * RCU-tasks holdout and wedging both sides.  Callbacks queued before
+	 * ->kthread_ptr publication are picked up by the kthread's first
+	 * pass, so this is race-free.
+	 */
+	if (READ_ONCE(rtp->kthread_ptr) || READ_ONCE(rtp->kthread_spawn_ok)) {
 		wait_rcu_gp_state(rtp->wait_state, rtp->call_func);
 		return;
 	}
+
+	// No kthread exists (spawn not yet attempted or failed): the inline
+	// mid-boot GP is safe because there is no kthread to become an
+	// eternal holdout.
 	rcu_tasks_one_gp(rtp, true);
 }
 
@@ -686,21 +701,27 @@ static void __init rcu_spawn_tasks_kthread_generic(struct rcu_tasks *rtp)
 {
 	struct task_struct *t;
 
+	/*
+	 * Mark the spawn attempt before kthread_run() so that concurrent
+	 * synchronize_rcu_tasks*() callers steer to the callback queue
+	 * instead of racing the incoming kthread with an inline mid-boot GP.
+	 */
+	WRITE_ONCE(rtp->kthread_spawn_ok, true);
 	t = kthread_run(rcu_tasks_kthread, rtp, "%s_kthread", rtp->kname);
-	if (WARN_ONCE(IS_ERR(t), "%s: Could not start %s grace-period kthread, OOM is now expected behavior\n", __func__, rtp->name))
+	if (WARN_ONCE(IS_ERR(t), "%s: Could not start %s grace-period kthread, OOM is now expected behavior\n", __func__, rtp->name)) {
+		// No kthread will ever exist: restore the inline mid-boot GP,
+		// which is safe again and also drains any callbacks enqueued
+		// in the interim.
+		WRITE_ONCE(rtp->kthread_spawn_ok, false);
 		return;
+	}
 
 	/*
-	 * Wait for the kthread to publish ->kthread_ptr before returning.
-	 * A synchronize_rcu_tasks*() call winning the race against the
-	 * kthread's first schedule would take the mid-boot inline-GP path
-	 * while holding ->tasks_gp_mutex; the kthread would then block on
-	 * that same mutex without ever reaching a voluntary context
-	 * switch, remaining an eternal RCU-tasks holdout.  Neither side
-	 * can then make progress, wedging the caller forever.
-	 *
-	 * Bounded so that a kthread which cannot run at all falls back to
-	 * the historical mid-boot inline-GP behavior.
+	 * Wait for the kthread to publish ->kthread_ptr before returning so
+	 * that early synchronizes take the kthread path directly.  Bounded:
+	 * ->kthread_spawn_ok already steers synchronize_rcu_tasks*() to the
+	 * race-free callback queue, so a pathologically slow kthread here
+	 * costs diagnostics only, never correctness.
 	 */
 	if (!wait_for_completion_timeout(&rtp->kthread_ready,
 					 msecs_to_jiffies(2000)))
