@@ -2153,8 +2153,12 @@
 		pinctrl-0 = <&ufs_dev_reset_assert>;
 		pinctrl-1 = <&ufs_dev_reset_deassert>;
 
-		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
-		reset-names = "core_reset";
+		/* PBEM00: no "resets" — the GCC BCR route wedges this
+		 * platform (see ufs_qcom_host_reset); ufs-qcom falls back to
+		 * the CLO-proven REG_UFS_CFG1 soft pulse. Pure property
+		 * deletion: clock_gcc's phandle is unaffected (first referenced
+		 * by ufs_ice/ufsphy earlier), so the partition overlay keeps
+		 * resolving. */
 
 		status = "disabled";
 	};

@@ -432,57 +432,15 @@ static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 
 /*
  * ufs_qcom_host_reset - reset host controller and PHY
+ *
+ * PBEM00: no reset at all. The GCC BCR route wedges this platform and a
+ * REG_UFS_CFG1 soft pulse restarts the SerDes, leaving the subsequent
+ * calibration tables to be written into a running PLL. The UFS PHY arrives
+ * fully programmed from XBL (see the qmp sdm670 cfg) and must be preserved
+ * as-is; stock 4.9 behaves the same way on this board.
  */
 static int ufs_qcom_host_reset(struct ufs_hba *hba)
 {
-	int ret;
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	bool reenable_intr;
-
-	if (!host->core_reset) {
-		/* PBEM00: no DT reset wired — pulse the PHY soft reset via
-		 * REG_UFS_CFG1 BIT(1), the only PHY reset path this
-		 * platform's CLO lineage ever exercised (4.9 OSS tree
-		 * drivers/scsi/ufs/ufs-qcom.h ufs_qcom_assert_reset).
-		 * The GCC BCR route wedges the platform. */
-		ufshcd_rmwl(hba, 0x2, 0x2, REG_UFS_CFG1);
-		mb();
-		usleep_range(1000, 1100);
-		ufshcd_rmwl(hba, 0x2, 0x0, REG_UFS_CFG1);
-		mb();
-		usleep_range(1000, 1100);
-		return 0;
-	}
-
-	reenable_intr = hba->is_irq_enabled;
-	ufshcd_disable_irq(hba);
-
-	ret = reset_control_assert(host->core_reset);
-	if (ret) {
-		dev_err(hba->dev, "%s: core_reset assert failed, err = %d\n",
-				 __func__, ret);
-		return ret;
-	}
-
-	/*
-	 * The hardware requirement for delay between assert/deassert
-	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
-	 * ~125us (4/32768). To be on the safe side add 200us delay.
-	 */
-	usleep_range(200, 210);
-
-	ret = reset_control_deassert(host->core_reset);
-	if (ret) {
-		dev_err(hba->dev, "%s: core_reset deassert failed, err = %d\n",
-				 __func__, ret);
-		return ret;
-	}
-
-	usleep_range(1000, 1100);
-
-	if (reenable_intr)
-		ufshcd_enable_irq(hba);
-
 	return 0;
 }
 
@@ -1847,6 +1805,17 @@ static int ufs_qcom_set_core_clk_ctrl(struct ufs_hba *hba, bool is_scale_up, uns
 	}
 
 set_core_clk_ctrl:
+	/* PBEM00: core_clk_unipro's clki->clk does not resolve on this
+	 * platform, so the generic path computes MAX_CORE_CLK_1US_CYCLES = 0
+	 * and would wipe the UniPro microsecond timing base XBL left
+	 * programmed (DME_VS_CORE_CLK_CTRL = cycles 150 + HW_CGC_EN, the
+	 * exact value stock's set_dme_vs_core_clk_ctrl_clear_div(150)
+	 * produces). Zero cycles loses the PA/DME engine timing base ->
+	 * PA_GENERIC_ERROR at every DME_LINKSTARTUP. Fall back to stock's
+	 * hardcoded 150. */
+	if (!cycles_in_1us)
+		cycles_in_1us = 150;
+
 	err = ufshcd_dme_get(hba,
 			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
 			    &core_clk_ctrl_reg);
@@ -3062,7 +3031,18 @@ static struct platform_driver ufs_qcom_pltform = {
 		.acpi_match_table = ACPI_PTR(ufs_qcom_acpi_match),
 	},
 };
-module_platform_driver(ufs_qcom_pltform);
+/*
+ * PBEM00: subsys so ufshc attaches early with every supplier live (rails/
+ * bcm/NoC at populate via their core_initcall drivers, ufsphy at subsys,
+ * tlmm at arch, gcc/rpmhcc at core) — first probe with zero defers, putting
+ * the vdda bulk-enable far outside the late-sweep window. Floors:
+ * init_scsi/ufshcd-core (same level, earlier link order), devfreq (core).
+ */
+static int __init ufs_qcom_pltform_init(void)
+{
+	return platform_driver_register(&ufs_qcom_pltform);
+}
+subsys_initcall(ufs_qcom_pltform_init);
 
 MODULE_DESCRIPTION("Qualcomm UFS host controller driver");
 MODULE_LICENSE("GPL v2");

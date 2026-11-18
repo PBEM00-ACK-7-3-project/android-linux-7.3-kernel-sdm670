@@ -1580,106 +1580,24 @@ static const struct qmp_phy_cfg sm7150_ufsphy_cfg = {
 	.no_pcs_sw_reset	= true,
 };
 
-/* sdm670 (PBEM00) UFS PHY tables, ported from the CLO 4.9
- * phy-qcom-ufs-qmp-v3.h tables (phy_cal_table_rate_A) -- the table set bound
- * by "qcom,ufs-phy-qmp-v3" (phy-qcom-ufs-qmp-v3.c) on sdm670/sdm710. */
-static const struct qmp_phy_init_tbl sdm670_ufsphy_serdes[] = {
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_CMN_CONFIG, 0x06),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_SYSCLK_EN_SEL, 0xd5),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_RESETSM_CNTRL, 0x20),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_CLK_SELECT, 0x30),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_SYS_CLK_CTRL, 0x02),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_BIAS_EN_CLKBUFLR_EN, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_BG_TIMER, 0x0a),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_HSCLK_SEL, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_LOCK_CMP_EN, 0x01),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE_CTRL, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_CORE_CLK_EN, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE_MAP, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_SVS_MODE_CLK_SEL, 0x05),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_PLL_IVCO, 0x07),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE_INITVAL1, 0xff),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE_INITVAL2, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_DEC_START_MODE0, 0x82),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_CP_CTRL_MODE0, 0x06),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_PLL_RCTRL_MODE0, 0x16),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_PLL_CCTRL_MODE0, 0x36),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_INTEGLOOP_GAIN0_MODE0, 0x3f),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_INTEGLOOP_GAIN1_MODE0, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE1_MODE0, 0xda),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE2_MODE0, 0x01),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_LOCK_CMP1_MODE0, 0xff),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_LOCK_CMP2_MODE0, 0x0c),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_DEC_START_MODE1, 0x98),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_CP_CTRL_MODE1, 0x06),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_PLL_RCTRL_MODE1, 0x16),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_PLL_CCTRL_MODE1, 0x36),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_INTEGLOOP_GAIN0_MODE1, 0x3f),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_INTEGLOOP_GAIN1_MODE1, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE1_MODE1, 0xc1),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_VCO_TUNE2_MODE1, 0x00),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_LOCK_CMP1_MODE1, 0x32),
-	QMP_PHY_INIT_CFG(QSERDES_V3_COM_LOCK_CMP2_MODE1, 0x0f),
-};
-
-static const struct qmp_phy_init_tbl sdm670_ufsphy_tx[] = {
-	QMP_PHY_INIT_CFG(QSERDES_V3_TX_LANE_MODE_1, 0x06),
-	QMP_PHY_INIT_CFG(QSERDES_V3_TX_RES_CODE_LANE_OFFSET_TX, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_TX_RES_CODE_LANE_OFFSET_RX, 0x07),
-};
-
-static const struct qmp_phy_init_tbl sdm670_ufsphy_rx[] = {
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_SIGDET_LVL, 0x24),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_SIGDET_CNTRL, 0x0f),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_SIGDET_DEGLITCH_CNTRL, 0x1e),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_INTERFACE_MODE, 0x40),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_FASTLOCK_FO_GAIN, 0x0b),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_TERM_BW, 0x5b),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_EQU_ADAPTOR_CNTRL2, 0x06),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_EQU_ADAPTOR_CNTRL3, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_EQU_ADAPTOR_CNTRL4, 0x1b),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_SVS_SO_GAIN_HALF, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_SVS_SO_GAIN_QUARTER, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_SVS_SO_GAIN, 0x04),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_SO_SATURATION_AND_ENABLE, 0x4b),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_PI_CONTROLS, 0x81),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_UCDR_FASTLOCK_COUNT_LOW, 0x80),
-	QMP_PHY_INIT_CFG(QSERDES_V3_RX_RX_MODE_00, 0x59),
-};
-
-static const struct qmp_phy_init_tbl sdm670_ufsphy_pcs[] = {
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_POWER_DOWN_CONTROL, 0x01),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_RX_SIGDET_CTRL2, 0x6e),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_TX_LARGE_AMP_DRV_LVL, 0x0a),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_TX_SMALL_AMP_DRV_LVL, 0x02),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_RX_SYM_RESYNC_CTRL, 0x03),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_TX_MID_TERM_CTRL1, 0x43),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_RX_SIGDET_CTRL1, 0x0f),
-	QMP_PHY_INIT_CFG(QPHY_V3_PCS_UFS_RX_MIN_HIBERN8_TIME, 0x9a),
-};
-
+/*
+ * PBEM00: write NOTHING to the UFS PHY, and enable RX LineCfg after READY
+ * (see qmp_ufs_phy_calibrate). Empirically on this board:
+ *  - replaying the BSP calibration tables (any of the CLO table sets)
+ *    breaks the SerDes: the XBL-programmed state is the only working one
+ *    and stock 4.9's own table writes are harmless no-ops at best;
+ *  - leaving the PHY untouched boots fine as long as RX LineCfg is
+ *    enabled before link startup, which stock does in
+ *    ufs_qcom_link_startup_pre_change and mainline never does.
+ * => preserve XBL's programming verbatim and only clear the LineCfg
+ *    disable bit after PCS_READY.
+ */
 static const struct qmp_phy_cfg sdm670_ufsphy_cfg = {
 	.lanes			= 1,
 
 	.offsets		= &qmp_ufs_offsets,
 	.max_supported_gear	= UFS_HS_G3,
 
-	.tbls = {
-		.serdes		= sdm670_ufsphy_serdes,
-		.serdes_num	= ARRAY_SIZE(sdm670_ufsphy_serdes),
-		.tx		= sdm670_ufsphy_tx,
-		.tx_num		= ARRAY_SIZE(sdm670_ufsphy_tx),
-		.rx		= sdm670_ufsphy_rx,
-		.rx_num		= ARRAY_SIZE(sdm670_ufsphy_rx),
-		.pcs		= sdm670_ufsphy_pcs,
-		.pcs_num	= ARRAY_SIZE(sdm670_ufsphy_pcs),
-	},
-	.tbls_hs_b = {
-		/* = CLO 4.9 v3.h phy_cal_table_rate_B, byte-identical to
-		 * sdm845_ufsphy_hs_b_serdes */
-		.serdes		= sdm845_ufsphy_hs_b_serdes,
-		.serdes_num	= ARRAY_SIZE(sdm845_ufsphy_hs_b_serdes),
-	},
 	.vreg_list		= sm7150_ufsphy_vreg_l,
 	.num_vregs		= ARRAY_SIZE(sm7150_ufsphy_vreg_l),
 	.regs			= ufsphy_v3_regs_layout,
@@ -2199,6 +2117,7 @@ static int qmp_ufs_phy_calibrate(struct phy *phy)
 	unsigned int val;
 	int ret;
 
+
 	ret = reset_control_assert(qmp->ufs_reset);
 	if (ret)
 		return ret;
@@ -2223,6 +2142,15 @@ static int qmp_ufs_phy_calibrate(struct phy *phy)
 		dev_err(qmp->dev, "phy initialization timed-out\n");
 		return ret;
 	}
+
+	/* PBEM00: enable RX LineCfg before the link startup — stock's
+	 * ufs_qcom_link_startup_pre_change does this on every boot
+	 * (ufs_qcom_phy_ctrl_rx_linecfg(true) = clear the disable bit at
+	 * pcs+0x130 BIT(1)). Mainline has no V3 LINECFG macro and never
+	 * touches it; with the bit left disabled the RX side never answers
+	 * PA_INIT and DME_LINKSTARTUP reports PA_GENERIC_ERROR despite a
+	 * READY PHY. */
+	qphy_clrbits(pcs, 0x130, BIT(1));
 
 	return 0;
 }
@@ -2594,7 +2522,17 @@ static struct platform_driver qmp_ufs_driver = {
 	},
 };
 
-module_platform_driver(qmp_ufs_driver);
+/*
+ * PBEM00: subsys so ufsphy binds early (rails/gcc/rpmhcc all live by
+ * then) instead of deferring until the late-initcall flush inside the 4.2s
+ * window. Floors: phy-core (also subsys, earlier link order), regulator/clk
+ * cores already at core_initcall.
+ */
+static int __init qmp_ufs_driver_init(void)
+{
+	return platform_driver_register(&qmp_ufs_driver);
+}
+subsys_initcall(qmp_ufs_driver_init);
 
 MODULE_AUTHOR("Vivek Gautam <vivek.gautam@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm QMP UFS PHY driver");
