@@ -2008,7 +2008,7 @@
 		      <0xc40a000 0x26000>;
 		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
 		interrupt-names = "periph_irq";
-		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 481 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
 		#address-cells = <2>;
@@ -2068,7 +2068,7 @@
 	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1d84000 0x3000>;
-		interrupts = <0 265 0>;
+		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
 		ufs-qcom-crypto = <&ufs_ice>;
