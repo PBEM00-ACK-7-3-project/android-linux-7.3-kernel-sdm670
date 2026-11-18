@@ -814,10 +814,20 @@
 		ignored-save-restore-irqs = <38>;
 	};
 
-	pdc: interrupt-controller@b220000{
-		compatible = "qcom,pdc-sdm670";
-		reg = <0xb220000 0x400>;
-		#interrupt-cells = <3>;
+	/* PBEM00: upstream form. The CLO "qcom,pdc-sdm670" compatible never
+	 * matched the mainline IRQCHIP_MATCH("qcom,pdc") driver, which left
+	 * the whole PDC wake-IRQ stack dead and forced the root iparent
+	 * workaround. With the upstream fallback string the driver binds and
+	 * tlmm gains its wakeup-parent domain. Consumers: the dormant CLO
+	 * qupv3 nodes still carry 3-cell specs (build-time dtc warnings only,
+	 * they never probe under 7.3 drivers). */
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,sdm670-pdc", "qcom,pdc";
+		reg = <0xb220000 0x10000>;
+		qcom,pdc-ranges = <0 480 40>, <41 521 7>, <49 529 4>,
+				  <54 534 24>, <79 559 15>, <94 609 15>,
+				  <115 630 7>;
+		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
 	};
@@ -2047,6 +2057,10 @@
 		clocks = <&rpmhcc RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>,
 			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>;
+		/* PBEM00: no resets property — the PHY reset is pulsed by
+		 * ufs-qcom via REG_UFS_CFG1 (the CLO lineage never declared
+		 * a reset here, and the upstream GCC BCR route wedges this
+		 * platform). */
 
 		status = "disabled";
 	};

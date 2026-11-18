@@ -1273,13 +1273,17 @@ static const struct msm_pingroup sdm670_groups[] = {
 	PINGROUP(148, WEST, _, _, _, _, _, _, _, _, _),
 	PINGROUP(149, WEST, _, _, _, _, _, _, _, _, _),
 	UFS_RESET(ufs_reset, 0x99d000),
-	SDC_QDSD_PINGROUP(sdc1_rclk, 0x99000, 15, 0),
-	SDC_QDSD_PINGROUP(sdc1_clk, 0x99000, 13, 6),
-	SDC_QDSD_PINGROUP(sdc1_cmd, 0x99000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc1_data, 0x99000, 9, 0),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x9a000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x9a000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x9a000, 9, 0),
+	/* PBEM00: SDC group offsets are absolute window offsets and include
+	 * the tile base (sdc1 = NORTH 0x500000 + 0x99000, sdc2 = SOUTH
+	 * 0x900000 + 0x9a000) — CLO parity; the 0x99000/0x9a000 values
+	 * upstream carried were missing the tile bases. */
+	SDC_QDSD_PINGROUP(sdc1_rclk, 0x599000, 15, 0),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x599000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x599000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x599000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x99a000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x99a000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x99a000, 9, 0),
 };
 
 static const int sdm670_reserved_gpios[] = {
@@ -1309,7 +1313,10 @@ static const struct msm_pinctrl_soc_data sdm670_pinctrl = {
 	.nfunctions = ARRAY_SIZE(sdm670_functions),
 	.groups = sdm670_groups,
 	.ngroups = ARRAY_SIZE(sdm670_groups),
-	.ngpios = 151,
+	/* PBEM00: gpios are 0..149 (150); pin 150 is the UFS_RESET special
+	 * group (ctl_reg 0x99d000), never a gpio — CLO parity. ngpios 151
+	 * made gpiolib walk the UFS_RESET group in get_direction. */
+	.ngpios = 150,
 	.reserved_gpios = sdm670_reserved_gpios,
 	.wakeirq_map = sdm670_pdc_map,
 	.nwakeirq_map = ARRAY_SIZE(sdm670_pdc_map),

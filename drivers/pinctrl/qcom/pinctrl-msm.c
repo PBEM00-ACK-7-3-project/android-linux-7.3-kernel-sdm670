@@ -600,7 +600,7 @@ static int msm_gpio_direction_output(struct gpio_chip *chip, unsigned offset, in
 	return 0;
 }
 
-static int msm_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
+static int __maybe_unused msm_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 {
 	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
 	const struct msm_pingroup *g;
@@ -781,7 +781,13 @@ out:
 static const struct gpio_chip msm_gpio_template = {
 	.direction_input  = msm_gpio_direction_input,
 	.direction_output = msm_gpio_direction_output,
-	.get_direction    = msm_gpio_get_direction,
+	/* PBEM00: NO .get_direction here. The gpiolib desc-init sweep reads
+	 * CTL of every valid pin at registration, and this TLMM has never-
+	 * powered register slots (pin81/NORTH @0x3951000 aborts after pin80
+	 * reads fine; CLO reserved 58-64/69-74/104 = known dead slots). The
+	 * CLO template ships without .get_direction too, so only pins a
+	 * consumer actually uses get touched. msm_gpio_get_direction stays
+	 * for debugfs/pinconf. */
 	.get              = msm_gpio_get,
 	.set              = msm_gpio_set,
 	.request          = gpiochip_generic_request,

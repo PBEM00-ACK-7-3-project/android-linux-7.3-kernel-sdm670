@@ -13,6 +13,10 @@
 &soc {
 	tlmm: pinctrl@03400000 {
 		compatible = "qcom,sdm670-tlmm";
+		/* PBEM00: re-enabled with the upstream IRQ topology —
+		 * wakeup-parent names the PDC wake domain, which must exist
+		 * before this probe (qcom-pdc binds via the upstream
+		 * compatible string; see the pdc node in sdm670.dtsi). */
 		reg = <0x03400000 0xc00000>, <0x179900F0 0x60>;
 		reg-names = "pinctrl_regs", "spi_cfg_regs";
 		interrupts = <0 208 4>;
@@ -20,7 +24,8 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		gpio-ranges = <&tlmm 0 0 151>;
+		gpio-ranges = <&tlmm 0 0 150>;
+		wakeup-parent = <&pdc>;
 
 		key_vol_up {
 			key_vol_up_default: key_vol_up_default {
