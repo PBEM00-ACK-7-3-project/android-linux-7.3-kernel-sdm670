@@ -156,6 +156,17 @@ unlock:
 	return req;
 }
 
+/*
+ * PBEM00: serialize synchronous RPMh transactions across the platform.
+ * The firmware side of this SoC generation (AOP mailbox) processes RPMh
+ * requests one at a time; overlapping dispatch->ACK windows from concurrent
+ * callers wedge the machine. Holding this mutex from TCS dispatch until the
+ * completion fires reproduces the CLO firmware's serial contract. It does
+ * NOT cover the request cache, which keeps its own ->cache_lock spinlock.
+ * PBEM00 has a single apps_rsc, so a global lock is exact, not approximate.
+ */
+static DEFINE_MUTEX(rpmh_sync_serial_lock);
+
 /**
  * __rpmh_write: Cache and send the RPMH request
  *
@@ -236,11 +247,19 @@ int rpmh_read(const struct device *dev, struct tcs_cmd *cmd)
 	if (ret)
 		return ret;
 
+	/*
+	 * Serialize only the TCS dispatch->completion window; the request
+	 * cache in __rpmh_write() is left under its own ->cache_lock.
+	 */
+	mutex_lock(&rpmh_sync_serial_lock);
 	ret = __rpmh_write(dev, RPMH_ACTIVE_ONLY_STATE, &rpm_msg);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&rpmh_sync_serial_lock);
 		return ret;
+	}
 
 	ret = wait_for_completion_timeout(&compl, RPMH_TIMEOUT_MS);
+	mutex_unlock(&rpmh_sync_serial_lock);
 	cmd[0].data = rpm_msg.cmd[0].data;
 
 	return (ret > 0) ? 0 : -ETIMEDOUT;
@@ -300,11 +319,19 @@ int rpmh_write(const struct device *dev, enum rpmh_state state,
 	if (ret)
 		return ret;
 
+	/*
+	 * Serialize only the TCS dispatch->completion window; the request
+	 * cache in __rpmh_write() is left under its own ->cache_lock.
+	 */
+	mutex_lock(&rpmh_sync_serial_lock);
 	ret = __rpmh_write(dev, state, &rpm_msg);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&rpmh_sync_serial_lock);
 		return ret;
+	}
 
 	ret = wait_for_completion_timeout(&compl, RPMH_TIMEOUT_MS);
+	mutex_unlock(&rpmh_sync_serial_lock);
 	WARN_ON(!ret);
 	return (ret > 0) ? 0 : -ETIMEDOUT;
 }
@@ -400,6 +427,14 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 		return 0;
 	}
 
+	/*
+	 * PBEM00: hold the platform sync-serialization lock across the
+	 * whole batch dispatch->wait. bcm-voter arrives here with ACTIVE
+	 * BCM votes; leaving this path unserialized defeats the serial
+	 * contract rpmh_read/rpmh_write uphold.
+	 */
+	mutex_lock(&rpmh_sync_serial_lock);
+
 	for (i = 0; i < count; i++) {
 		struct completion *compl = &compls[i];
 
@@ -424,11 +459,12 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 			 */
 			WARN_ON(1);
 			ret = -ETIMEDOUT;
-			goto exit;
+			goto exit_unlock;
 		}
 	}
 
-exit:
+exit_unlock:
+	mutex_unlock(&rpmh_sync_serial_lock);
 	kfree(ptr);
 
 	return ret;
