@@ -22,9 +22,14 @@
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
-	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	/* PBEM00: this include is NOT part of the soc.dtb build
+	 * (soc.dts only takes sdm670.dtsi) — these attributes never
+	 * reach the boot FDT. The live ufsphy compatible/vdda supplies
+	 * come from the stock dtbo (fragment@37: pm660l_l1 / pm660_l1).
+	 * Kept as documentation of the stock contract only. */
+	vdda-phy-supply = <&pm660l_l1>;
 	vdda-phy-always-on;
-	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
+	vdda-pll-supply = <&pm660_l1>;
 	vdda-phy-max-microamp = <62900>;
 	vdda-pll-max-microamp = <18300>;
 

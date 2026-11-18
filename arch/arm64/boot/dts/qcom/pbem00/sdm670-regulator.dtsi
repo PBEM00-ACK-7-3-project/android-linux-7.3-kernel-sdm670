@@ -184,9 +184,14 @@
 			regulator-enable-ramp-delay = <250>;
 		};
 
+		/* Stock fixes L16 at 2700000; CLO sends raw uV for the firmware to
+		 * round, but 2700000 rides between the 8000 uV PMIC4 PLDO steps
+		 * (2696000/2704000) and the strict upstream selector mapping
+		 * rejects it at register time with -EINVAL, failing the whole
+		 * regulators-0 probe. Snap to the ceiling step. */
 		pm660_l16: ldo16 {
-			regulator-min-microvolt = <2700000>;
-			regulator-max-microvolt = <2700000>;
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <2704000>;
 			regulator-enable-ramp-delay = <250>;
 		};
 
