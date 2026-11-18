@@ -1173,6 +1173,13 @@ static int rpmhpd_probe(struct platform_device *pdev)
 		rpmhpds[i]->pd.power_off = rpmhpd_power_off;
 		rpmhpds[i]->pd.power_on = rpmhpd_power_on;
 		rpmhpds[i]->pd.set_performance_state = rpmhpd_set_performance_state;
+		/* PBEM00: ALWAYS_ON — the late "Disabling unused power
+		 * domains" sweep collapses every genpd without a consumer,
+		 * issuing ARC rpmh votes (observed death: tcs claim addr=0x30010
+		 * right after the sweep at 4.19s, machine gone before the ACK).
+		 * Stock 4.9 never drops ARC rails at boot (no genpd framework);
+		 * keep the same behavior until real consumers attach. */
+		rpmhpds[i]->pd.flags |= GENPD_FLAG_ALWAYS_ON;
 		pm_genpd_init(&rpmhpds[i]->pd, NULL, true);
 
 		data->domains[i] = &rpmhpds[i]->pd;

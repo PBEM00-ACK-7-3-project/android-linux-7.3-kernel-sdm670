@@ -3435,7 +3435,12 @@ static struct gdsc ufs_phy_gdsc = {
 		.name = "ufs_phy_gdsc",
 	},
 	.pwrsts = PWRSTS_OFF_ON,
-	.flags = POLL_CFG_GDSCR,
+	/* PBEM00: ALWAYS_ON — nothing in the PBEM00 DT consumes this
+	 * genpd (vdd-hba is a fixed regulator mirroring the XBL-left-on
+	 * state), so the late "Disabling unused power domains" sweep would
+	 * otherwise power-collapse the UFS PHY right after a successful
+	 * probe. */
+	.flags = POLL_CFG_GDSCR | ALWAYS_ON,
 };
 
 static struct gdsc usb30_prim_gdsc = {
