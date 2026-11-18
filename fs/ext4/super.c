@@ -2201,8 +2201,18 @@ static int ext4_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	int token;
 
 	token = fs_parse(fc, ext4_param_specs, param, &result);
-	if (token < 0)
+	if (token < 0) {
+		/* PBEM00: tolerate the vendor fstab's "async_discard"
+		 * mount option as a no-op — the ColorOS-era vendor image
+		 * carries it on the vendor entry, our ext4 has no such
+		 * spec, and failing the vendor mount sends first-stage init
+		 * into InitFatalReboot. Async discard is the modern ext4
+		 * default behavior anyway. */
+		if (param->type == fs_value_is_flag &&
+		    !strcmp(param->key, "async_discard"))
+			return 0;
 		return token;
+	}
 	is_remount = fc->purpose == FS_CONTEXT_FOR_RECONFIGURE;
 
 	for (m = ext4_mount_opts; m->token != Opt_err; m++)
