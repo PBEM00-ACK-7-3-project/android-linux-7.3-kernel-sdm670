@@ -2391,8 +2391,19 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
 
 	dwc->edev = dwc3_get_extcon(dwc);
 	if (IS_ERR(dwc->edev)) {
-		ret = dev_err_probe(dwc->dev, PTR_ERR(dwc->edev), "failed to get extcon\n");
-		goto err_free_event_buffers;
+		ret = PTR_ERR(dwc->edev);
+		/* PBEM00: peripheral-only port with no extcon provider in the
+		 * tree (the CLO charger node referenced by the stock "extcon"
+		 * property has no driver here). The role is fixed by
+		 * dr_mode=peripheral, so proceed with edev = NULL exactly like
+		 * the usb-role-switch path does. */
+		if (ret == -ENODEV) {
+			dwc->edev = NULL;
+			dev_info(dwc->dev, "no extcon provider; using fixed dr_mode\n");
+		} else {
+			dev_err_probe(dwc->dev, ret, "failed to get extcon\n");
+			goto err_free_event_buffers;
+		}
 	}
 
 	ret = dwc3_get_dr_mode(dwc);
@@ -2417,6 +2428,7 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
 	pm_runtime_put(dev);
 
 	dma_set_max_seg_size(dev, UINT_MAX);
+
 
 	return 0;
 
