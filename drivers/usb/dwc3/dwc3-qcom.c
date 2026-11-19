@@ -14,6 +14,7 @@
 #include <linux/interconnect.h>
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
+#include <linux/regulator/consumer.h>
 #include <linux/usb/of.h>
 #include <linux/reset.h>
 #include <linux/iopoll.h>
@@ -83,6 +84,7 @@ struct dwc3_qcom {
 	bool			pm_suspended;
 	struct icc_path		*icc_path_ddr;
 	struct icc_path		*icc_path_apps;
+	struct regulator	*vbus;
 
 	enum usb_role		current_role;
 };
@@ -561,6 +563,7 @@ static int dwc3_qcom_setup_irq(struct dwc3_qcom *qcom, struct platform_device *p
 static void dwc3_qcom_set_role_notifier(struct dwc3 *dwc, enum usb_role next_role)
 {
 	struct dwc3_qcom *qcom = to_dwc3_qcom(dwc);
+	int ret;
 
 	if (qcom->current_role == next_role)
 		return;
@@ -574,6 +577,18 @@ static void dwc3_qcom_set_role_notifier(struct dwc3 *dwc, enum usb_role next_rol
 		dwc3_qcom_vbus_override_enable(qcom, false);
 	else if (qcom->current_role != USB_ROLE_DEVICE)
 		dwc3_qcom_vbus_override_enable(qcom, true);
+
+	/* PBEM00: drive the PMIC OTG boost in host role so bus-powered
+	 * peripherals get VBUS. */
+	if (qcom->vbus) {
+		if (next_role == USB_ROLE_HOST) {
+			ret = regulator_enable(qcom->vbus);
+			if (ret)
+				dev_err(qcom->dev, "failed to enable vbus supply: %d\n", ret);
+		} else {
+			regulator_disable(qcom->vbus);
+		}
+	}
 
 	pm_runtime_mark_last_busy(qcom->dev);
 	pm_runtime_put_sync(qcom->dev);
@@ -652,6 +667,14 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	ret = clk_bulk_prepare_enable(qcom->num_clocks, qcom->clks);
 	if (ret < 0)
 		return ret;
+
+	qcom->vbus = devm_regulator_get_optional(dev, "vbus");
+	if (IS_ERR(qcom->vbus)) {
+		if (PTR_ERR(qcom->vbus) == -EPROBE_DEFER)
+			return dev_err_probe(dev, -EPROBE_DEFER,
+					     "failed to get vbus supply\n");
+		qcom->vbus = NULL;
+	}
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!r) {
@@ -741,6 +764,9 @@ static void dwc3_qcom_remove(struct platform_device *pdev)
 	dwc3_core_remove(&qcom->dwc);
 	clk_bulk_disable_unprepare(qcom->num_clocks, qcom->clks);
 	dwc3_qcom_interconnect_exit(qcom);
+
+	if (qcom->current_role == USB_ROLE_HOST && qcom->vbus)
+		regulator_disable(qcom->vbus);
 
 	pm_runtime_put_noidle(qcom->dev);
 }
