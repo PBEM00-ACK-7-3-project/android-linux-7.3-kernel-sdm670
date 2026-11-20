@@ -316,6 +316,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
 	struct dwc3		*dwc = dep->dwc;
 	u32			timeout = 5000;
 	u32			saved_config = 0;
+	u32			saved_pipe = 0;
 	u32			reg;
 
 	int			cmd_status = 0;
@@ -347,6 +348,23 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
 
 		if (saved_config)
 			dwc3_writel(dwc, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
+	/*
+	 * PBEM00: qscratch routes the UTMI clock into the pipe-clock input
+	 * (dwc3-qcom "qcom,select-utmi-as-pipe-clk"), so endpoint commands
+	 * execute behind the GUSB3PIPECTL.SUSPHY gate, which neither the
+	 * wrapper above nor dwc3_enable_susphy(false) callers clear here.
+	 * On SDM670/R17 DEPSTARTCFG (global resource cmd) completes while the
+	 * first SETEPCONF hangs forever (-ETIMEDOUT) when this bit is set.
+	 * Save/clear/restore it alongside the USB2 suspend bits, regardless
+	 * of the configured speed.
+	 */
+	reg = dwc3_readl(dwc, DWC3_GUSB3PIPECTL(0));
+	if (unlikely(reg & DWC3_GUSB3PIPECTL_SUSPHY)) {
+		saved_pipe = DWC3_GUSB3PIPECTL_SUSPHY;
+		reg &= ~DWC3_GUSB3PIPECTL_SUSPHY;
+		dwc3_writel(dwc, DWC3_GUSB3PIPECTL(0), reg);
 	}
 
 	/*
@@ -451,6 +469,12 @@ skip_status:
 		reg = dwc3_readl(dwc, DWC3_GUSB2PHYCFG(0));
 		reg |= saved_config;
 		dwc3_writel(dwc, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
+	if (saved_pipe) {
+		reg = dwc3_readl(dwc, DWC3_GUSB3PIPECTL(0));
+		reg |= saved_pipe;
+		dwc3_writel(dwc, DWC3_GUSB3PIPECTL(0), reg);
 	}
 
 	return ret;
@@ -2947,6 +2971,7 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 {
 	struct dwc3_ep		*dep;
 	int			ret = 0;
+	int			i;
 	u32			reg;
 
 	/*
@@ -2960,40 +2985,63 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 		dwc3_writel(dwc, DWC3_DEV_IMOD(0), 0);
 	}
 
-	/*
-	 * We are telling dwc3 that we want to use DCFG.NUMP as ACK TP's NUMP
-	 * field instead of letting dwc3 itself calculate that automatically.
-	 *
-	 * This way, we maximize the chances that we'll be able to get several
-	 * bursts of data without going through any sort of endpoint throttling.
-	 */
-	reg = dwc3_readl(dwc, DWC3_GRXTHRCFG);
-	if (DWC3_IP_IS(DWC3))
-		reg &= ~DWC3_GRXTHRCFG_PKTCNTSEL;
-	else
-		reg &= ~DWC31_GRXTHRCFG_PKTCNTSEL;
+	/* PBEM00 (CLO 4.9 __dwc3_gadget_start verbatim): program DCFG.DEVSPD
+	 * from dwc->maximum_speed at gadget start. Mainline dropped this
+	 * block and leaves the reset default in place until pullup-time
+	 * set_speed; on this silicon the reset default reads back as SS.
+	 * Stock runs this exact block before the first SETEPCONF (SUPER per
+	 * stock DT -> SS) and works, so the write is restored with CLO
+	 * semantics; the wrapper DT carries maximum-speed = high-speed, i.e.
+	 * the live UTMI clock domain. STAR#9000525659 (metastability on DCTL
+	 * in USB 2.0 mode) only applies to revisions < 2.20a, this core is
+	 * >= 2.70a. */
+	reg = dwc3_readl(dwc, DWC3_DCFG);
+	reg &= ~(DWC3_DCFG_SPEED_MASK);
 
-	dwc3_writel(dwc, DWC3_GRXTHRCFG, reg);
+	if (dwc->revision < DWC3_REVISION_220A) {
+		reg |= DWC3_DCFG_SUPERSPEED;
+	} else {
+		switch (dwc->maximum_speed) {
+		case USB_SPEED_LOW:
+			reg |= DWC3_DCFG_LOWSPEED;
+			break;
+		case USB_SPEED_FULL:
+			reg |= DWC3_DCFG_FULLSPEED;
+			break;
+		case USB_SPEED_HIGH:
+			reg |= DWC3_DCFG_HIGHSPEED;
+			break;
+		case USB_SPEED_SUPER_PLUS:
+			reg |= DWC3_DCFG_SUPERSPEED_PLUS;
+			break;
+		default:
+			dev_err(dwc->dev, "invalid dwc->maximum_speed (%d)\n",
+					dwc->maximum_speed);
+			reg |= DWC3_DCFG_SUPERSPEED;
+			break;
+		case USB_SPEED_SUPER:
+			reg |= DWC3_DCFG_SUPERSPEED;
+			break;
+		}
+	}
+	dwc3_writel(dwc, DWC3_DCFG, reg);
+
+	/* PBEM00 (CLO __dwc3_gadget_start verbatim): cap the AXI master's
+	 * outstanding pipelined transfers at 0xe, gated on core revision
+	 * >= 2.70a. Mainline never programs GSBUSCFG1. */
+	if (!DWC3_VER_IS_PRIOR(DWC3, 270A)) {
+		reg = dwc3_readl(dwc, DWC3_GSBUSCFG1);
+		reg &= ~DWC3_GSBUSCFG1_PIPETRANSLIMIT_MASK;
+		reg |= DWC3_GSBUSCFG1_PIPETRANSLIMIT(0xe);
+		dwc3_writel(dwc, DWC3_GSBUSCFG1, reg);
+	}
 
 	dwc3_gadget_setup_nump(dwc);
 
-	/*
-	 * Currently the controller handles single stream only. So, Ignore
-	 * Packet Pending bit for stream selection and don't search for another
-	 * stream if the host sends Data Packet with PP=0 (for OUT direction) or
-	 * ACK with NumP=0 and PP=0 (for IN direction). This slightly improves
-	 * the stream performance.
-	 */
-	reg = dwc3_readl(dwc, DWC3_DCFG);
-	reg |= DWC3_DCFG_IGNSTRMPP;
-	dwc3_writel(dwc, DWC3_DCFG, reg);
-
-	/* Enable MST by default if the device is capable of MST */
-	if (DWC3_MST_CAPABLE(&dwc->hwparams)) {
-		reg = dwc3_readl(dwc, DWC3_DCFG1);
-		reg &= ~DWC3_DCFG1_DIS_MST_ENH;
-		dwc3_writel(dwc, DWC3_DCFG1, reg);
-	}
+	/* PBEM00: mainline also clears GRXTHRCFG.PKTCNTSEL here, sets
+	 * DCFG.IGNSTRMPP (bit23, reads back set on this silicon) and enables
+	 * DCFG1 MST - none of which stock ever performs in this window, so
+	 * none of them are done here. */
 
 	/* Start with SuperSpeed Default */
 	dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
@@ -3006,17 +3054,43 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 
 	dep = dwc->eps[0];
 	dep->flags = 0;
+
+	/* PBEM00 (CLO dwc3_gadget_start_config verbatim): program the XFER
+	 * resource of every hardware endpoint right after DEPSTARTCFG and
+	 * BEFORE the first SETEPCONF. Mainline inverts this ordering - it
+	 * issues SETTRANSFRESOURCE only after set_ep_config - and on this
+	 * silicon the first SETEPCONF wedges with CmdAct stuck when the
+	 * endpoint has no XFERCFG resource programmed yet. */
+	for (i = 0; i < dwc->num_eps; i++) {
+		struct dwc3_ep	*dep_i = dwc->eps[i];
+
+		if (!dep_i)
+			continue;
+		ret = dwc3_gadget_set_xfer_resource(dep_i);
+		if (ret) {
+			dev_err(dwc->dev, "XFERCFG for %s failed: %d\n",
+					dep_i->name, ret);
+			goto err0;
+		}
+	}
+
 	ret = __dwc3_gadget_ep_enable(dep, DWC3_DEPCFG_ACTION_INIT);
 	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		dev_err(dwc->dev, "failed to enable %s (%d)\n", dep->name, ret);
 		goto err0;
 	}
 
 	dep = dwc->eps[1];
-	dep->flags = 0;
+	/* PBEM00: keep DWC3_EP_RESOURCE_ALLOCATED - the pre-batch above
+	 * already programmed this endpoint's XFERCFG, and this silicon
+	 * returns DEPEVT_TRANSFER_NO_RESOURCE when SETTRANSFRESOURCE is
+	 * re-issued for an already-allocated endpoint. Clearing the flag
+	 * here used to kill gadget start after run-stop, leaving the device
+	 * on the bus with a dead ep0in. */
+	dep->flags &= DWC3_EP_RESOURCE_ALLOCATED;
 	ret = __dwc3_gadget_ep_enable(dep, DWC3_DEPCFG_ACTION_INIT);
 	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		dev_err(dwc->dev, "failed to enable %s (%d)\n", dep->name, ret);
 		goto err1;
 	}
 
@@ -4382,14 +4456,14 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	dep = dwc->eps[0];
 	ret = __dwc3_gadget_ep_enable(dep, DWC3_DEPCFG_ACTION_MODIFY);
 	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		dev_err(dwc->dev, "failed to enable %s (%d)\n", dep->name, ret);
 		return;
 	}
 
 	dep = dwc->eps[1];
 	ret = __dwc3_gadget_ep_enable(dep, DWC3_DEPCFG_ACTION_MODIFY);
 	if (ret) {
-		dev_err(dwc->dev, "failed to enable %s\n", dep->name);
+		dev_err(dwc->dev, "failed to enable %s (%d)\n", dep->name, ret);
 		return;
 	}
 
