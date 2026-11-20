@@ -275,6 +275,17 @@ config QCOM_FASTRPC
 	  applications DSP processor. Say M if you want to enable this
 	  module.
 
+config QSEECOM
+	tristate "Qualcomm QSEE legacy QSEECOM driver"
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on QCOM_SCM
+	select DMA_SHARED_BUFFER
+	help
+	  Character device exposing the legacy (4.9 ABI) Qualcomm QSEE
+	  ioctl interface. User space secure-execution daemons use it to
+	  load and communicate with TrustZone applications and register
+	  listener services. Say Y to build it into the kernel.
+
 config APDS9802ALS
 	tristate "Medfield Avago APDS9802 ALS Sensor module"
 	depends on I2C
