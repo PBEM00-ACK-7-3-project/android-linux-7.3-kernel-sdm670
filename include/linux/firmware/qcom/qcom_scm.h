@@ -11,6 +11,8 @@
 
 #include <dt-bindings/firmware/qcom,scm.h>
 
+struct device;
+
 #define QCOM_SCM_VERSION(major, minor)	(((major) << 16) | ((minor) & 0xFF))
 #define QCOM_SCM_CPU_PWR_DOWN_L2_ON	0x0
 #define QCOM_SCM_CPU_PWR_DOWN_L2_OFF	0x1
@@ -194,5 +196,38 @@ int qcom_scm_qtee_invoke_smc(phys_addr_t inbuf, size_t inbuf_size,
 			     u64 *result, u64 *response_type);
 int qcom_scm_qtee_callback_response(phys_addr_t buf, size_t buf_size,
 				    u64 *result, u64 *response_type);
+
+#define QCOM_SCM_TZ_MAX_ARGS	10
+
+/**
+ * struct qcom_scm_tz_desc - descriptor of a legacy Qualcomm TrustZone syscall
+ * @owner:   TrustZone owning entity, as encoded in the function id
+ * @svc:     service id (8-bit)
+ * @cmd:     command id (8-bit)
+ * @arginfo: argument layout: number of arguments in the low nibble, followed
+ *           by a 2-bit type (0=val, 1=ro-buffer, 2=rw-buffer) per argument
+ * @args:    arguments; args[0..3] are passed in registers, args[3..9] are
+ *           additionally copied into the extra argument buffer when
+ *           arginfo reports more than 4 arguments
+ */
+struct qcom_scm_tz_desc {
+	u32 owner;
+	u32 svc;
+	u32 cmd;
+	u32 arginfo;
+	u64 args[QCOM_SCM_TZ_MAX_ARGS];
+};
+
+/**
+ * struct qcom_scm_tz_res - TrustZone syscall result
+ * @result: raw SMC return values x1..x3; the TrustZone business result is
+ *          result[0], further values depend on the syscall
+ */
+struct qcom_scm_tz_res {
+	u64 result[3];
+};
+
+int qcom_scm_tz_call(struct device *dev, const struct qcom_scm_tz_desc *desc,
+		     struct qcom_scm_tz_res *res);
 
 #endif

@@ -223,3 +223,89 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
 
 }
+
+/*
+ * Legacy TrustZone syscall channel (downstream scm_call2 ABI).
+ *
+ * The downstream SCM driver issued Qualcomm-private syscalls with a
+ * function id layout and register marshaling that differs from the
+ * mainline SCM interface in two ways:
+ *
+ *	x0 = ((owner & 0x3f) << 24) | ((svc & 0xff) << 8) | (cmd & 0xff)
+ *	     | SMC64, without the fast call bit
+ *	x2..x4 = args[0..2]; x5 = args[3], replaced by the physical address
+ *	of the extra argument buffer when arginfo reports more than 4
+ *	arguments; the extra buffer holds args[3..9] as little-endian u64
+ *
+ * The yielding call bit (bit 31 unset) is intentional: the QSEE scheduler
+ * syscalls (e.g. CLIENT_SEND_DATA blocking on a listener response) must not
+ * be issued as fast calls, and the downstream driver ran every legacy
+ * syscall this way.
+ *
+ * Unlike __scm_smc_call() this channel deliberately does not depend on the
+ * SCM driver having probed: it never touches TZ memory, using its own
+ * device-coherent extra argument buffer instead, so QSEE clients keep
+ * working even when the upstream probe path is unavailable on this
+ * firmware.
+ */
+static DEFINE_MUTEX(qcom_scm_tz_call_lock);
+static void *qcom_scm_tz_extra_arg;
+static dma_addr_t qcom_scm_tz_extra_arg_phys;
+static size_t qcom_scm_tz_extra_arg_size;
+
+int qcom_scm_tz_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
+			 struct qcom_scm_res *res)
+{
+	struct arm_smccc_args smc = {0};
+	struct arm_smccc_res smc_res = {0};
+	int arglen = desc->arginfo & 0xf;
+	int i, ret = 0;
+
+	mutex_lock(&qcom_scm_tz_call_lock);
+
+	if (arglen > SCM_SMC_N_REG_ARGS) {
+		if (!qcom_scm_tz_extra_arg) {
+			qcom_scm_tz_extra_arg_size = PAGE_SIZE;
+			qcom_scm_tz_extra_arg = dma_alloc_coherent(dev,
+					qcom_scm_tz_extra_arg_size,
+					&qcom_scm_tz_extra_arg_phys,
+					GFP_KERNEL);
+			if (!qcom_scm_tz_extra_arg) {
+				qcom_scm_tz_extra_arg_size = 0;
+				ret = -ENOMEM;
+				goto out_unlock;
+			}
+		}
+
+		for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
+			((__le64 *)qcom_scm_tz_extra_arg)[i] =
+				cpu_to_le64(desc->args[i +
+						SCM_SMC_FIRST_EXT_IDX]);
+
+		smc.args[SCM_SMC_LAST_REG_IDX] = qcom_scm_tz_extra_arg_phys;
+	}
+
+	smc.args[0] = ((desc->owner & 0x3f) << 24) |
+		      ((desc->svc & 0xff) << 8) |
+		      (desc->cmd & 0xff) |
+		      0x40000000;
+	smc.args[1] = desc->arginfo;
+	for (i = 0; i < SCM_SMC_N_REG_ARGS; i++)
+		smc.args[i + SCM_SMC_FIRST_REG_IDX] = desc->args[i];
+
+	ret = __scm_smc_do(dev, &smc, &smc_res, false);
+
+out_unlock:
+	mutex_unlock(&qcom_scm_tz_call_lock);
+
+	if (ret)
+		return ret;
+
+	if (res) {
+		res->result[0] = smc_res.a1;
+		res->result[1] = smc_res.a2;
+		res->result[2] = smc_res.a3;
+	}
+
+	return (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
+}

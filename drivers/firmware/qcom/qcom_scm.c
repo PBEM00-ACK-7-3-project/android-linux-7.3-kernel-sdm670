@@ -2295,6 +2295,7 @@ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
 }
 EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_send);
 
+
 /*
  * We do not yet support re-entrant calls via the qseecom interface. To prevent
  + any potential issues with this, only allow validated machines for now.
@@ -2401,6 +2402,50 @@ static int qcom_scm_qseecom_init(struct qcom_scm *scm)
 }
 
 #endif /* CONFIG_QCOM_QSEECOM */
+
+/**
+ * qcom_scm_tz_call() - Issue a legacy Qualcomm TrustZone syscall.
+ * @dev:   device used for allocating the extra argument buffer, may be NULL
+ *         once the buffer exists
+ * @desc:  syscall descriptor (owner/service/command and arguments)
+ * @res:   syscall result, optional
+ *
+ * Issues a syscall using the downstream scm_call2 ABI: a Qualcomm-private
+ * function id issued as a yielding SMC64 call, with the argument info word
+ * in x1. This is the only way to reach the QSEE syscall interface (app
+ * loading, listener scheduling, key management) that QSEE firmware of this
+ * generation exposes to the HLOS kernel.
+ *
+ * Return: Zero on success, negative errno on failure. The TrustZone
+ * business result is carried in res->result[0], not in the return value.
+ */
+int qcom_scm_tz_call(struct device *dev, const struct qcom_scm_tz_desc *tzdesc,
+		     struct qcom_scm_tz_res *tzres)
+{
+	struct qcom_scm_desc desc = {};
+	struct qcom_scm_res res = {};
+	int i, ret;
+
+	desc.owner = tzdesc->owner;
+	desc.svc = tzdesc->svc;
+	desc.cmd = tzdesc->cmd;
+	desc.arginfo = tzdesc->arginfo;
+	for (i = 0; i < QCOM_SCM_TZ_MAX_ARGS; i++)
+		desc.args[i] = tzdesc->args[i];
+
+	ret = qcom_scm_tz_smc_call(dev, &desc, &res);
+	if (ret)
+		return ret;
+
+	if (tzres) {
+		tzres->result[0] = res.result[0];
+		tzres->result[1] = res.result[1];
+		tzres->result[2] = res.result[2];
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qcom_scm_tz_call);
 
 /**
  * qcom_scm_qtee_invoke_smc() - Invoke a QTEE object.
