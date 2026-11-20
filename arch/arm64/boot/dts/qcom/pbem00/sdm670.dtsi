@@ -465,6 +465,10 @@
 	};
 
 	firmware: firmware {
+		scm {
+			compatible = "qcom,scm";
+		};
+
 		android {
 			compatible = "android,firmware";
 			boot_devices = "soc/1d84000.ufshc";
@@ -964,14 +968,8 @@
 		qcom,no-clock-support;
 		qcom,fde-key-size;
 		qcom,appsbl-qseecom-support;
-		qcom,msm-bus,name = "qseecom-noc";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<125 512 0 0>,
-				<125 512 200000 400000>,
-				<125 512 300000 800000>,
-				<125 512 400000 1000000>;
+		interconnects = <&aggre2_noc MASTER_CRYPTO_CORE_0 0 &mem_noc SLAVE_EBI_CH0 0>;
+		interconnect-names = "qseecom-mem";
 		clock-names = "core_clk_src", "core_clk",
 					 "iface_clk", "bus_clk";
 		clocks = <&clock_gcc GCC_CE1_CLK>,
