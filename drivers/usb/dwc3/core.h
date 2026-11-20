@@ -97,6 +97,8 @@
 /* Global Registers */
 #define DWC3_GSBUSCFG0		0xc100
 #define DWC3_GSBUSCFG1		0xc104
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT_MASK	(0x0f << 8)
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT(n)	((n) << 8)
 #define DWC3_GTXTHRCFG		0xc108
 #define DWC3_GRXTHRCFG		0xc10c
 #define DWC3_GCTL		0xc110
@@ -327,6 +329,7 @@
 #define DWC3_GUSB3PIPECTL_U2SSINP3OK	BIT(29)
 #define DWC3_GUSB3PIPECTL_DISRXDETINP3	BIT(28)
 #define DWC3_GUSB3PIPECTL_UX_EXIT_PX	BIT(27)
+#define DWC3_GUSB3PIPECTL_DELAYP1TRANS	BIT(18)
 #define DWC3_GUSB3PIPECTL_REQP1P2P3	BIT(24)
 #define DWC3_GUSB3PIPECTL_DEP1P2P3(n)	((n) << 19)
 #define DWC3_GUSB3PIPECTL_DEP1P2P3_MASK	DWC3_GUSB3PIPECTL_DEP1P2P3(7)
@@ -423,7 +426,10 @@
 
 /* Global User Control Register 2 */
 #define DWC3_GUCTL2_RST_ACTBITLATER		BIT(14)
+#define DWC3_GUCTL2_HP_TIMER(n)			((n) << 21)
+#define DWC3_GUCTL2_HP_TIMER_MASK		DWC3_GUCTL2_HP_TIMER(0x1f)
 #define DWC3_GUCTL2_LC_TIMER			BIT(19)
+#define DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT	BIT(12)
 
 /* Global User Control Register 3 */
 #define DWC3_GUCTL3_SPLITDISABLE		BIT(14)
@@ -440,6 +446,7 @@
 #define DWC3_DCFG_SUPERSPEED	(4 << 0)
 #define DWC3_DCFG_HIGHSPEED	(0 << 0)
 #define DWC3_DCFG_FULLSPEED	BIT(0)
+#define DWC3_DCFG_LOWSPEED	(2 << 0)
 
 #define DWC3_DCFG_NUMP_SHIFT	17
 #define DWC3_DCFG_NUMP(n)	(((n) >> DWC3_DCFG_NUMP_SHIFT) & 0x1f)
@@ -1277,6 +1284,7 @@ struct dwc3 {
 
 	u32			fladj;
 	u32			ref_clk_per;
+	bool			disable_clk_gating;
 	u32			irq_gadget;
 	u32			otg_irq;
 	u32			current_otg_role;

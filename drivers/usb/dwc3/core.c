@@ -462,6 +462,20 @@ static void dwc3_ref_clk_period(struct dwc3 *dwc)
 	if (dwc->gfladj_refclk_lpm_sel)
 		reg |=  DWC3_GFLADJ_REFCLK_LPM_SEL;
 
+	/*
+	 * PBEM00 (CLO dwc3-msm update_ref_clk, 19.2 MHz row): CLO lands on
+	 * REFCLK_FLADJ=200 (SNPS databook Table 6-55 recipe) and always
+	 * selects the LPM ref clock and the PLS1 decrement bit; the
+	 * mainline derivation computes 0 for this rate. Apply the CLO
+	 * recipe when the period came from the DT (ref_clk_per == 52,
+	 * the CLO 19.2 MHz value).
+	 */
+	if (!dwc->ref_clk && dwc->ref_clk_per == 52) {
+		FIELD_MODIFY(DWC3_GFLADJ_REFCLK_FLADJ_MASK, &reg, 200);
+		reg |= DWC3_GFLADJ_REFCLK_LPM_SEL;
+		reg |= DWC3_GFLADJ_240MHZDECR_PLS1;
+	}
+
 	dwc3_writel(dwc, DWC3_GFLADJ, reg);
 }
 
@@ -1081,6 +1095,15 @@ static void dwc3_core_setup_global_control(struct dwc3 *dwc)
 	    hw_mode != DWC3_GHWPARAMS0_MODE_GADGET && DWC3_VER_IS(DWC31, 200A))
 		reg |= DWC3_GCTL_DSBLCLKGTNG;
 
+	/*
+	 * PBEM00: SDM670 dwc3 RAM clock gating entry deadlocks the command
+	 * domain (the first SETEPCONF wedges with CmdAct set). Honor
+	 * snps,disable-clk-gating for every mode and power option, after
+	 * the mode-dependent defaults above.
+	 */
+	if (dwc->disable_clk_gating)
+		reg |= DWC3_GCTL_DSBLCLKGTNG;
+
 	/* check if current dwc3 is on simulation board */
 	if (dwc->hwparams.hwparams6 & DWC3_GHWPARAMS6_EN_FPGA) {
 		dev_info(dwc->dev, "Running with FPGA optimizations\n");
@@ -1431,6 +1454,17 @@ int dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc, DWC3_GUCTL2, reg);
 	}
 
+	/* PBEM00 (CLO 4.9 dwc3_core_reset verbatim): clear DELAYP1TRANS and
+	 * set UX_EXIT_PX for revisions <= 3.10a. Mainline dwc3_phy_setup
+	 * deliberately clears UX_EXIT_PX ("causes issues with some setups"),
+	 * but CLO is the reference for this silicon and boots with the bit
+	 * set. Global register, survives the device soft reset. */
+	reg = dwc3_readl(dwc, DWC3_GUSB3PIPECTL(0));
+	reg &= ~DWC3_GUSB3PIPECTL_DELAYP1TRANS;
+	if (dwc->revision <= DWC3_REVISION_310A)
+		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_PX;
+	dwc3_writel(dwc, DWC3_GUSB3PIPECTL(0), reg);
+
 	/*
 	 * STAR 9001285599: This issue affects DWC_usb3 version 3.20a
 	 * only. If the PM TIMER ECM is enabled through GUCTL2[19], the
@@ -1443,6 +1477,24 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (DWC3_VER_IS(DWC3, 320A)) {
 		reg = dwc3_readl(dwc, DWC3_GUCTL2);
 		reg &= ~DWC3_GUCTL2_LC_TIMER;
+		dwc3_writel(dwc, DWC3_GUCTL2, reg);
+	}
+
+	/* PBEM00 (CLO 4.9 dwc3_core_init verbatim): STAR 9001198391 HP timer
+	 * reprogramming for 3.20a and endpoint-cache-eviction enable for
+	 * 3.00a/3.20a - both blocks are missing from mainline. The version
+	 * gates self-resolve on silicon; the preinit4 dump reads GUCTL2
+	 * back to certify whichever fired. */
+	if (DWC3_VER_IS(DWC3, 320A)) {
+		reg = dwc3_readl(dwc, DWC3_GUCTL2);
+		reg &= ~DWC3_GUCTL2_HP_TIMER_MASK;
+		reg |= DWC3_GUCTL2_HP_TIMER(11);
+		dwc3_writel(dwc, DWC3_GUCTL2, reg);
+	}
+
+	if (DWC3_VER_IS(DWC3, 300A) || DWC3_VER_IS(DWC3, 320A)) {
+		reg = dwc3_readl(dwc, DWC3_GUCTL2);
+		reg |= DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT;
 		dwc3_writel(dwc, DWC3_GUCTL2, reg);
 	}
 
@@ -1873,6 +1925,11 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 
 	dwc->dis_split_quirk = device_property_read_bool(dev,
 				"snps,dis-split-quirk");
+	/* PBEM00 (CLO dwc3-msm heritage): SDM670 dwc3 internal RAM clock
+	 * gating can deadlock the command domain; CLO keys its known-HW-bug
+	 * workaround on this property. */
+	dwc->disable_clk_gating = device_property_read_bool(dev,
+				"snps,disable-clk-gating");
 
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
 	dwc->tx_de_emphasis = tx_de_emphasis;
