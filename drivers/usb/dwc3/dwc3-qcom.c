@@ -28,6 +28,12 @@
 #define UTMI_OTG_VBUS_VALID			BIT(20)
 #define SW_SESSVLD_SEL				BIT(28)
 
+/* PBEM00 (CLO dwc3-msm CGCTL_REG, qscratch+0x28): RAM master clock
+ * keep-alive; 0x18 is the CLO factory value for this silicon, re-applied
+ * there at every core reset. */
+#define QSCRATCH_CGCTL				0x28
+#define QSCRATCH_CGCTL_RAM_CLKS			0x18
+
 #define QSCRATCH_SS_PHY_CTRL			0x30
 #define LANE0_PWR_PRESENT			BIT(24)
 
@@ -630,7 +636,7 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	struct resource		res;
 	struct resource		*r;
 	int			ret;
-	bool			ignore_pipe_clk;
+	int			i;
 	bool			wakeup_source;
 
 	qcom = devm_kzalloc(&pdev->dev, sizeof(*qcom), GFP_KERNEL);
@@ -650,23 +656,30 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, ret, "failed to get clocks\n");
 	qcom->num_clocks = ret;
 
-	ret = reset_control_assert(qcom->resets);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to assert resets, err=%d\n", ret);
-		return ret;
-	}
-
-	usleep_range(10, 1000);
-
-	ret = reset_control_deassert(qcom->resets);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to deassert resets, err=%d\n", ret);
-		return ret;
-	}
+	/* PBEM00: keep GCC_USB30_PRIM_BCR untouched at probe. Pulsing the
+	 * reset discards the firmware hand-off state, and on SDM670 the
+	 * endpoint command engine never recovers from the reset-defaults
+	 * state in this stack. CLO also leaves the BCR alone at probe and
+	 * only re-trains clocks, phy and core around it in the LPM resume
+	 * path, which this stack does not implement. */
 
 	ret = clk_bulk_prepare_enable(qcom->num_clocks, qcom->clks);
 	if (ret < 0)
 		return ret;
+
+	/* PBEM00 (CLO qcom,core-clk-rate heritage): pin the controller master
+	 * clock to 133.3MHz. The firmware leaves it at 200MHz here, a rate
+	 * CLO never runs this controller at; CLO re-pins 133333333 at probe
+	 * and on every resume. */
+	for (i = 0; i < qcom->num_clocks; i++) {
+		if (!strcmp(qcom->clks[i].id, "core")) {
+			ret = clk_set_rate(qcom->clks[i].clk, 133333333);
+			if (ret)
+				dev_err(dev, "failed to set core clk rate: %d\n",
+					ret);
+			break;
+		}
+	}
 
 	qcom->vbus = devm_regulator_get_optional(dev, "vbus");
 	if (IS_ERR(qcom->vbus)) {
@@ -697,15 +710,6 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 		goto clk_disable;
 	}
 
-	/*
-	 * Disable pipe_clk requirement if specified. Used when dwc3
-	 * operates without SSPHY and only HS/FS/LS modes are supported.
-	 */
-	ignore_pipe_clk = device_property_read_bool(dev,
-				"qcom,select-utmi-as-pipe-clk");
-	if (ignore_pipe_clk)
-		dwc3_qcom_select_utmi_clk(qcom);
-
 	qcom->mode = usb_get_dr_mode(dev);
 
 	if (qcom->mode == USB_DR_MODE_HOST) {
@@ -733,6 +737,21 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 		ret = dev_err_probe(dev, ret, "failed to register DWC3 Core\n");
 		goto clk_disable;
 	}
+
+	/* PBEM00 (CLO dwc3-msm msm.c:2023 heritage): keep the qscratch RAM
+	 * master clocks un-gated. CLO re-applies this at every core reset;
+	 * this stack has no second reset after probe, so one write here
+	 * covers it. Starved RAM clocks wedge the DEPCMD execution domain. */
+	dwc3_qcom_setbits(qcom->qscratch_base, QSCRATCH_CGCTL,
+			  QSCRATCH_CGCTL_RAM_CLKS);
+
+	/* PBEM00 (CLO select_utmi_clk heritage, post-phy-init timing): feed
+	 * the UTMI clock into the controller's pipe-clock input, which also
+	 * clocks the endpoint context RAM. With no SS PHY wired on this
+	 * board the pipe-clock input has no other live source, and the
+	 * qusb2 PHY is bound and powered by the time dwc3_core_probe()
+	 * returns. */
+	dwc3_qcom_select_utmi_clk(qcom);
 
 	ret = dwc3_qcom_interconnect_init(qcom);
 	if (ret)
