@@ -253,13 +253,21 @@ static void *qcom_scm_tz_extra_arg;
 static dma_addr_t qcom_scm_tz_extra_arg_phys;
 static size_t qcom_scm_tz_extra_arg_size;
 
+/*
+ * Downstream firmware may preempt a secure-world syscall and return
+ * SCM_INTERRUPTED; the call must simply be re-issued with identical
+ * registers (the downstream SCM driver retried transparently this way).
+ */
+#define SCM_INTERRUPTED		1
+#define SCM_INTERRUPTED_MAX_RETRY 100
+
 int qcom_scm_tz_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 			 struct qcom_scm_res *res)
 {
 	struct arm_smccc_args smc = {0};
 	struct arm_smccc_res smc_res = {0};
 	int arglen = desc->arginfo & 0xf;
-	int i, ret = 0;
+	int i, retry_count = 0, ret = 0;
 
 	mutex_lock(&qcom_scm_tz_call_lock);
 
@@ -293,7 +301,15 @@ int qcom_scm_tz_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 	for (i = 0; i < SCM_SMC_N_REG_ARGS; i++)
 		smc.args[i + SCM_SMC_FIRST_REG_IDX] = desc->args[i];
 
-	ret = __scm_smc_do(dev, &smc, &smc_res, false);
+	do {
+		ret = __scm_smc_do(dev, &smc, &smc_res, false);
+		if (ret)
+			break;
+		if (smc_res.a0 == SCM_INTERRUPTED &&
+		    ++retry_count == SCM_INTERRUPTED_MAX_RETRY / 10)
+			pr_warn_ratelimited("qcom_scm: secure world keeps interrupting (10 retries so far)\n");
+	} while (smc_res.a0 == SCM_INTERRUPTED &&
+		 retry_count < SCM_INTERRUPTED_MAX_RETRY);
 
 out_unlock:
 	mutex_unlock(&qcom_scm_tz_call_lock);
