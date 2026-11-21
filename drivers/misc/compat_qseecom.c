@@ -430,7 +430,7 @@ long compat_qseecom_ioctl(struct file *file,
 	case COMPAT_QSEECOM_IOCTL_PERF_ENABLE_REQ:
 	case COMPAT_QSEECOM_IOCTL_PERF_DISABLE_REQ:
 	case COMPAT_QSEECOM_IOCTL_UNLOAD_EXTERNAL_ELF_REQ: {
-		return qseecom_ioctl(file, convert_cmd(cmd), 0);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), NULL);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_REGISTER_LISTENER_REQ: {
@@ -444,8 +444,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_LOAD_APP_REQ: {
@@ -459,8 +458,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		ret = qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		ret = qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 		err = compat_put_qseecom_load_img_req(data32, &data);
 		return ret ? ret : err;
 	}
@@ -476,8 +474,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_REQ:
@@ -492,8 +489,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_SET_MEM_PARAM_REQ: {
@@ -507,8 +503,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_GET_QSEOS_VERSION_REQ: {
@@ -522,8 +517,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		ret = qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		ret = qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 		err = compat_put_qseecom_qseos_version_req(data32, &data);
 
 		return ret ? ret : err;
@@ -540,8 +534,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ: {
@@ -555,8 +548,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_APP_LOADED_QUERY_REQ: {
@@ -570,8 +562,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		ret = qseecom_ioctl(file, convert_cmd(cmd),
-					(unsigned long)&data);
+		ret = qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 		err = compat_put_qseecom_qseos_app_load_query(data32, &data);
 		return ret ? ret : err;
 	}
@@ -587,8 +578,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_CREATE_KEY_REQ: {
@@ -602,8 +592,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_WIPE_KEY_REQ: {
@@ -617,8 +606,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_UPDATE_KEY_USER_INFO_REQ: {
@@ -632,8 +620,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_SAVE_PARTITION_HASH_REQ: {
@@ -647,8 +634,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_IS_ES_ACTIVATED_REQ: {
@@ -662,8 +648,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		ret = qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		ret = qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 		err = compat_put_qseecom_is_es_activated_req(data32, &data);
 		return ret ? ret : err;
 	}
@@ -679,8 +664,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP:
@@ -695,8 +679,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ: {
@@ -710,8 +693,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	case COMPAT_QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ:
@@ -727,8 +709,7 @@ long compat_qseecom_ioctl(struct file *file,
 		if (err)
 			return err;
 
-		return qseecom_ioctl(file, convert_cmd(cmd),
-						(unsigned long)&data);
+		return qseecom_do_ioctl(file, convert_cmd(cmd), &data);
 	}
 	break;
 	default:
