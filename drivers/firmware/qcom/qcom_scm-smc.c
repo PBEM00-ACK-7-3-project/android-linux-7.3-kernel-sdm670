@@ -271,6 +271,23 @@ int qcom_scm_tz_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 
 	mutex_lock(&qcom_scm_tz_call_lock);
 
+	/*
+	 * Register arguments must be staged before the extended argument
+	 * buffer pointer lands in x5: the loop below stores args[0..3] into
+	 * x2..x5, so with the blocks in the opposite order a call carrying
+	 * more than SCM_SMC_N_REG_ARGS parameters would clobber x5 with
+	 * args[3] and the downstream convention (args[0..2] in registers,
+	 * args[3..] behind the x5 pointer, exactly how the 4.9 __scm_call2
+	 * arranged it) would never see the buffer.
+	 */
+	smc.args[0] = ((desc->owner & 0x3f) << 24) |
+		      ((desc->svc & 0xff) << 8) |
+		      (desc->cmd & 0xff) |
+		      0x40000000;
+	smc.args[1] = desc->arginfo;
+	for (i = 0; i < SCM_SMC_N_REG_ARGS; i++)
+		smc.args[i + SCM_SMC_FIRST_REG_IDX] = desc->args[i];
+
 	if (arglen > SCM_SMC_N_REG_ARGS) {
 		if (!qcom_scm_tz_extra_arg) {
 			qcom_scm_tz_extra_arg_size = PAGE_SIZE;
@@ -288,18 +305,10 @@ int qcom_scm_tz_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 		for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
 			((__le64 *)qcom_scm_tz_extra_arg)[i] =
 				cpu_to_le64(desc->args[i +
-						SCM_SMC_FIRST_EXT_IDX]);
+							SCM_SMC_FIRST_EXT_IDX]);
 
 		smc.args[SCM_SMC_LAST_REG_IDX] = qcom_scm_tz_extra_arg_phys;
 	}
-
-	smc.args[0] = ((desc->owner & 0x3f) << 24) |
-		      ((desc->svc & 0xff) << 8) |
-		      (desc->cmd & 0xff) |
-		      0x40000000;
-	smc.args[1] = desc->arginfo;
-	for (i = 0; i < SCM_SMC_N_REG_ARGS; i++)
-		smc.args[i + SCM_SMC_FIRST_REG_IDX] = desc->args[i];
 
 	do {
 		ret = __scm_smc_do(dev, &smc, &smc_res, false);
