@@ -284,7 +284,7 @@
 
 &soc {
 	refgen: refgen-regulator@ff1000 {
-		compatible = "qcom,refgen-regulator";
+		compatible = "qcom,sdm845-refgen-regulator";
 		reg = <0xff1000 0x60>;
 		regulator-name = "refgen";
 		regulator-enable-ramp-delay = <5>;

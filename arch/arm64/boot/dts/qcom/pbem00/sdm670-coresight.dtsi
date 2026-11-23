@@ -601,23 +601,6 @@
 				};
 			};
 
-			port@1 {
-				reg = <0>;
-				funnel_in2_in_gfx: endpoint {
-					slave-mode;
-					remote-endpoint =
-					  <&gfx_out_funnel_in2>;
-				};
-			};
-
-			port@2 {
-				reg = <1>;
-				funnel_in2_in_gfx_cx: endpoint {
-					slave-mode;
-					remote-endpoint =
-					  <&gfx_cx_out_funnel_in2>;
-				};
-			};
 		};
 	};
 

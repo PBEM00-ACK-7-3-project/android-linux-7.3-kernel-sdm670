@@ -1,0 +1,642 @@
+/* PBEM00 display + GPU, upstream msm form: the sdm670 display
+ * controllers (mdss/dpu/DSI controllers/10nm PHYs/dispcc) plus the a615
+ * GPU node set, wired to this board: PM660/PM660L rails, tlmm panel
+ * gpios, the existing apps_smmu/mmss_noc/mem_noc/rpmhpd nodes and the
+ * panel sequence driver (panel-samsung-ams641rw01).
+ *
+ * This file is included LAST from sdm670.dtsi on purpose: the dtsinclude
+ * capsule shadows the in-tree CLO copies of qcom,dispcc-sdm845.h,
+ * qcom,gcc-sdm845.h and qcom,gpucc-sdm845.h, and their clock indices
+ * predate the upstream drivers' arrays (e.g. DISP_CC_MDSS_ESC0_CLK is 19
+ * in the CLO header but 8 in the upstream dispcc-sdm845 driver).  The
+ * restore block below puts the indices this file uses back to their
+ * mainline values; being last, it cannot affect any other node in this
+ * translation unit.
+ * RPMH_REGULATOR_LEVEL_* is deliberately NOT restored: every rpmhpd opp
+ * table in this tree votes the CLO +1 encoding.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/qcom,dsi-phy-28nm.h>
+/* qcom-rpmpd.h is deliberately NOT included: it would redefine
+ * RPMH_REGULATOR_LEVEL_* with raw (non +1) values over this tree's CLO
+ * encoding.  The rpmhpd index used below, 2, is SDM670_CX. */
+
+/* ---- mainline clock-index restore (CLO shadow -> upstream value) ---- */
+#undef DISP_CC_MDSS_AHB_CLK
+#define DISP_CC_MDSS_AHB_CLK		0	/* same */
+#undef DISP_CC_MDSS_AXI_CLK
+#define DISP_CC_MDSS_AXI_CLK		1	/* same */
+#undef DISP_CC_MDSS_BYTE0_CLK
+#define DISP_CC_MDSS_BYTE0_CLK		2	/* same */
+#undef DISP_CC_MDSS_BYTE0_CLK_SRC
+#define DISP_CC_MDSS_BYTE0_CLK_SRC	3	/* same */
+#undef DISP_CC_MDSS_BYTE0_INTF_CLK
+#define DISP_CC_MDSS_BYTE0_INTF_CLK	4	/* same */
+#undef DISP_CC_MDSS_BYTE1_CLK
+#define DISP_CC_MDSS_BYTE1_CLK		5	/* CLO: n/a */
+#undef DISP_CC_MDSS_BYTE1_CLK_SRC
+#define DISP_CC_MDSS_BYTE1_CLK_SRC	6
+#undef DISP_CC_MDSS_BYTE1_INTF_CLK
+#define DISP_CC_MDSS_BYTE1_INTF_CLK	7
+#undef DISP_CC_MDSS_ESC0_CLK
+#define DISP_CC_MDSS_ESC0_CLK		8	/* CLO: 19 */
+#undef DISP_CC_MDSS_ESC1_CLK
+#define DISP_CC_MDSS_ESC1_CLK		10	/* CLO: 40 */
+#undef DISP_CC_MDSS_MDP_CLK
+#define DISP_CC_MDSS_MDP_CLK		12	/* CLO: 23 */
+#undef DISP_CC_MDSS_PCLK0_CLK
+#define DISP_CC_MDSS_PCLK0_CLK		15	/* CLO: 26 */
+#undef DISP_CC_MDSS_PCLK0_CLK_SRC
+#define DISP_CC_MDSS_PCLK0_CLK_SRC	16	/* CLO: 27 */
+#undef DISP_CC_MDSS_PCLK1_CLK
+#define DISP_CC_MDSS_PCLK1_CLK		17
+#undef DISP_CC_MDSS_PCLK1_CLK_SRC
+#define DISP_CC_MDSS_PCLK1_CLK_SRC	18
+#undef DISP_CC_MDSS_VSYNC_CLK
+#define DISP_CC_MDSS_VSYNC_CLK		23	/* CLO: 36 */
+#define MDSS_GDSC			0	/* absent in CLO header */
+#undef GCC_DISP_AXI_CLK
+#define GCC_DISP_AXI_CLK		20	/* CLO: 28 */
+#undef GCC_DISP_GPLL0_CLK_SRC
+#define GCC_DISP_GPLL0_CLK_SRC		21	/* CLO: 29 */
+#undef GCC_DISP_GPLL0_DIV_CLK_SRC
+#define GCC_DISP_GPLL0_DIV_CLK_SRC	22	/* CLO: 30 */
+#undef GCC_GPU_GPLL0_CLK_SRC
+#define GCC_GPU_GPLL0_CLK_SRC		31	/* CLO: 39 */
+#undef GCC_GPU_GPLL0_DIV_CLK_SRC
+#define GCC_GPU_GPLL0_DIV_CLK_SRC	32	/* CLO: 40 */
+#undef GCC_GPU_CFG_AHB_CLK
+#define GCC_GPU_CFG_AHB_CLK		30	/* CLO: 38 */
+#undef GCC_GPU_MEMNOC_GFX_CLK
+#define GCC_GPU_MEMNOC_GFX_CLK		33	/* CLO: 41 */
+#undef GCC_DDRSS_GPU_AXI_CLK
+#define GCC_DDRSS_GPU_AXI_CLK		18	/* CLO: 26 */
+#undef GPU_CC_CX_GMU_CLK
+#define GPU_CC_CX_GMU_CLK		0	/* CLO: 4 */
+#undef GPU_CC_CXO_CLK
+#define GPU_CC_CXO_CLK			1	/* CLO: 10 */
+#define GPU_CX_GDSC			0	/* absent in CLO header */
+#define GPU_GX_GDSC			1	/* absent in CLO header */
+
+/* Panel pads: reset (gpio26, gpio function) and the DSI TE feed into MDP
+ * (gpio10 muxed to mdp_vsync). */
+&tlmm {
+	panel_te_default: panel-te-default {
+		mux {
+			pins = "gpio10";
+			function = "mdp_vsync";
+		};
+
+		config {
+			pins = "gpio10";
+			drive-strength = <2>;	/* 2 mA */
+			bias-pull-down;
+		};
+	};
+
+	panel_reset_default: panel-reset-default {
+		mux {
+			pins = "gpio26";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio26";
+			drive-strength = <8>;	/* 8 mA */
+			bias-disable;
+		};
+	};
+};
+
+&soc {
+	mdss: display-subsystem@ae00000 {
+		compatible = "qcom,sdm670-mdss";
+		reg = <0 0x0ae00000 0 0x1000>;
+		reg-names = "mdss";
+
+		power-domains = <&clock_dispcc MDSS_GDSC>;
+
+		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_MDP_CLK>;
+		clock-names = "iface", "core";
+
+		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		interconnects = <&mmss_noc MASTER_MDP_PORT0 0 &mem_noc SLAVE_EBI_CH0 0>,
+				<&mmss_noc MASTER_MDP_PORT1 0 &mem_noc SLAVE_EBI_CH0 0>;
+		interconnect-names = "mdp0-mem", "mdp1-mem";
+
+		iommus = <&apps_smmu 0x880 0x8>,
+			 <&apps_smmu 0xc80 0x8>;
+
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		mdss_mdp: display-controller@ae01000 {
+			compatible = "qcom,sdm670-dpu";
+			reg = <0 0x0ae01000 0 0x8f000>,
+			      <0 0x0aeb0000 0 0x3000>;
+			reg-names = "mdp", "vbif";
+
+			clocks = <&clock_gcc GCC_DISP_AXI_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AXI_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
+			clock-names = "gcc-bus", "iface", "bus", "core", "vsync";
+
+			assigned-clocks = <&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
+			assigned-clock-rates = <19200000>;
+			operating-points-v2 = <&mdp_opp_table>;
+			power-domains = <&rpmhpd 2>;	/* 2 = SDM670_CX */
+
+			interrupt-parent = <&mdss>;
+			interrupts = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					dpu_intf0_out: endpoint {
+						remote-endpoint = <&mdss_dsi0_in>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dpu_intf1_out: endpoint {
+						remote-endpoint = <&mdss_dsi1_in>;
+					};
+				};
+			};
+
+			mdp_opp_table: opp-table {
+				compatible = "operating-points-v2";
+
+				opp-19200000 {
+					opp-hz = /bits/ 64 <19200000>;
+					required-opps = <&rpmhpd_opp_min_svs>;
+				};
+
+				opp-171428571 {
+					opp-hz = /bits/ 64 <171428571>;
+					required-opps = <&rpmhpd_opp_low_svs>;
+				};
+
+				opp-358000000 {
+					opp-hz = /bits/ 64 <358000000>;
+					required-opps = <&rpmhpd_opp_svs_l1>;
+				};
+
+				opp-430000000 {
+					opp-hz = /bits/ 64 <430000000>;
+					required-opps = <&rpmhpd_opp_nom>;
+				};
+			};
+		};
+
+		mdss_dsi0: dsi@ae94000 {
+			compatible = "qcom,sdm670-dsi-ctrl",
+				     "qcom,mdss-dsi-ctrl";
+			reg = <0 0x0ae94000 0 0x400>;
+			reg-names = "dsi_ctrl";
+
+			interrupt-parent = <&mdss>;
+			interrupts = <4>;
+
+			clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_ESC0_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AXI_CLK>;
+			clock-names = "byte",
+				      "byte_intf",
+				      "pixel",
+				      "core",
+				      "iface",
+				      "bus";
+			assigned-clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
+					  <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+			assigned-clock-parents = <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
+						 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
+
+			operating-points-v2 = <&dsi_opp_table>;
+			power-domains = <&rpmhpd 2>;	/* 2 = SDM670_CX */
+
+			phys = <&mdss_dsi0_phy>;
+
+			vdda-supply = <&pm660_l1>;
+			refgen-supply = <&refgen>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					mdss_dsi0_in: endpoint {
+						remote-endpoint = <&dpu_intf0_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					mdss_dsi0_out: endpoint {
+						remote-endpoint = <&panel_in>;
+						data-lanes = <0 1 2 3>;
+					};
+				};
+			};
+
+			panel: panel@0 {
+				compatible = "samsung,ams641rw01";
+				reg = <0>;
+
+				reset-gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&panel_te_default &panel_reset_default>;
+
+				vddio-supply = <&pm660_l8>;
+				vdda-supply = <&pm660l_l6>;
+
+				peak-brightness = <4300000>;
+				color-primaries = <15000 15500 34000 16000
+						   13250 34500 7500 3000>;
+
+				port {
+					panel_in: endpoint {
+						remote-endpoint = <&mdss_dsi0_out>;
+					};
+				};
+			};
+		};
+
+		mdss_dsi0_phy: phy@ae94400 {
+			compatible = "qcom,dsi-phy-10nm";
+			reg = <0 0x0ae94400 0 0x200>,
+			      <0 0x0ae94600 0 0x280>,
+			      <0 0x0ae94a00 0 0x1e0>;
+			reg-names = "dsi_phy",
+				    "dsi_phy_lane",
+				    "dsi_pll";
+
+			#clock-cells = <1>;
+			#phy-cells = <0>;
+
+			clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "iface", "ref";
+
+			vdds-supply = <&pm660l_l1>;
+		};
+
+		mdss_dsi1: dsi@ae96000 {
+			compatible = "qcom,sdm670-dsi-ctrl",
+				     "qcom,mdss-dsi-ctrl";
+			reg = <0 0x0ae96000 0 0x400>;
+			reg-names = "dsi_ctrl";
+
+			interrupt-parent = <&mdss>;
+			interrupts = <5>;
+
+			clocks = <&clock_dispcc DISP_CC_MDSS_BYTE1_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_PCLK1_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_ESC1_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&clock_dispcc DISP_CC_MDSS_AXI_CLK>;
+			clock-names = "byte",
+				      "byte_intf",
+				      "pixel",
+				      "core",
+				      "iface",
+				      "bus";
+			assigned-clocks = <&clock_dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
+					  <&clock_dispcc DISP_CC_MDSS_PCLK1_CLK_SRC>;
+			assigned-clock-parents = <&mdss_dsi1_phy DSI_BYTE_PLL_CLK>,
+						 <&mdss_dsi1_phy DSI_PIXEL_PLL_CLK>;
+
+			operating-points-v2 = <&dsi_opp_table>;
+			power-domains = <&rpmhpd 2>;	/* 2 = SDM670_CX */
+
+			phys = <&mdss_dsi1_phy>;
+
+			vdda-supply = <&pm660_l1>;
+			refgen-supply = <&refgen>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					mdss_dsi1_in: endpoint {
+						remote-endpoint = <&dpu_intf1_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					mdss_dsi1_out: endpoint {
+					};
+				};
+			};
+		};
+
+		/* The second PHY stays enabled even though its controller is
+		 * not used: dispcc consumes its PLL outputs as fw clocks and
+		 * defers forever without the provider. */
+		mdss_dsi1_phy: phy@ae96400 {
+			compatible = "qcom,dsi-phy-10nm";
+			reg = <0 0x0ae96400 0 0x200>,
+			      <0 0x0ae96600 0 0x280>,
+			      <0 0x0ae96a00 0 0x10e>;
+			reg-names = "dsi_phy",
+				    "dsi_phy_lane",
+				    "dsi_pll";
+
+			#clock-cells = <1>;
+			#phy-cells = <0>;
+
+			clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+				 <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "iface", "ref";
+
+			vdds-supply = <&pm660l_l1>;
+		};
+	};
+
+	/* The clock_dispcc label is kept because clock_debug references it. */
+	clock_dispcc: clock-controller@af00000 {
+		compatible = "qcom,sdm845-dispcc";
+		reg = <0 0x0af00000 0 0x10000>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_DISP_GPLL0_CLK_SRC>,
+			 <&clock_gcc GCC_DISP_GPLL0_DIV_CLK_SRC>,
+			 <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
+			 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>,
+			 <&mdss_dsi1_phy DSI_BYTE_PLL_CLK>,
+			 <&mdss_dsi1_phy DSI_PIXEL_PLL_CLK>,
+			 <0>,
+			 <0>;
+		clock-names = "bi_tcxo",
+			      "gcc_disp_gpll0_clk_src",
+			      "gcc_disp_gpll0_div_clk_src",
+			      "dsi0_phy_pll_out_byteclk",
+			      "dsi0_phy_pll_out_dsiclk",
+			      "dsi1_phy_pll_out_byteclk",
+			      "dsi1_phy_pll_out_dsiclk",
+			      "dp_link_clk_divsel_ten",
+			      "dp_vco_divided_clk_src_mux";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+	};
+
+	/* ---- GPU (a615), upstream form; zap fw lands in the existing
+	 * pil_gpu_mem region. */
+	adreno_smmu: iommu@5040000 {
+		compatible = "qcom,sdm670-smmu-v2", "qcom,adreno-smmu", "qcom,smmu-v2";
+		reg = <0 0x05040000 0 0x10000>;
+		#iommu-cells = <1>;
+		#global-interrupts = <2>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 364 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 365 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 366 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 367 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 368 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 369 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 370 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			 <&clock_gcc GCC_GPU_CFG_AHB_CLK>;
+		clock-names = "bus", "iface";
+
+		power-domains = <&gpucc GPU_CX_GDSC>;
+	};
+
+	dsi_opp_table: opp-table-dsi {
+		compatible = "operating-points-v2";
+
+		opp-19200000 {
+			opp-hz = /bits/ 64 <19200000>;
+			required-opps = <&rpmhpd_opp_min_svs>;
+		};
+
+		opp-180000000 {
+			opp-hz = /bits/ 64 <180000000>;
+			required-opps = <&rpmhpd_opp_low_svs>;
+		};
+
+		opp-275000000 {
+			opp-hz = /bits/ 64 <275000000>;
+			required-opps = <&rpmhpd_opp_svs>;
+		};
+
+		opp-358000000 {
+			opp-hz = /bits/ 64 <358000000>;
+			required-opps = <&rpmhpd_opp_svs_l1>;
+		};
+	};
+
+	gpu: gpu@5000000 {
+		compatible = "qcom,adreno-615.0", "qcom,adreno";
+
+		reg = <0 0x05000000 0 0x40000>, <0 0x0509e000 0 0x10>;
+		reg-names = "kgsl_3d0_reg_memory", "cx_mem";
+
+		/*
+		 * Look ma, no clocks! The GPU clocks and power are
+		 * controlled entirely by the GMU.
+		 */
+
+		interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
+
+		iommus = <&adreno_smmu 0>;
+
+		operating-points-v2 = <&gpu_opp_table>;
+
+		qcom,gmu = <&gmu>;
+
+		interconnects = <&mem_noc MASTER_GRAPHICS_3D 0 &mem_noc SLAVE_EBI_CH0 0>;
+		interconnect-names = "gfx-mem";
+
+		nvmem-cells = <&gpu_speed_bin>;
+		nvmem-cell-names = "speed_bin";
+
+		gpu_zap_shader: zap-shader {
+			memory-region = <&pil_gpu_mem>;
+		};
+
+		gpu_opp_table: opp-table {
+			compatible = "operating-points-v2";
+
+			/* opp-level uses this tree's CLO +1 encoding, see
+			 * the header comment.  opp-supported-hw follows the
+			 * upstream per-speedbin gating. */
+
+			opp-780000000 {
+				opp-hz = /bits/ 64 <780000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0x8>;
+			};
+
+			opp-750000000 {
+				opp-hz = /bits/ 64 <750000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_TURBO>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0x8>;
+			};
+
+			opp-700000000 {
+				opp-hz = /bits/ 64 <700000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_TURBO>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0x4>;
+			};
+
+			opp-650000000 {
+				opp-hz = /bits/ 64 <650000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_NOM_L1>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0xc>;
+			};
+
+			opp-565000000 {
+				opp-hz = /bits/ 64 <565000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_NOM>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0xc>;
+			};
+
+			opp-504000000 {
+				opp-hz = /bits/ 64 <504000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_NOM>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0x2>;
+			};
+
+			opp-430000000 {
+				opp-hz = /bits/ 64 <430000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_SVS_L1>;
+				opp-peak-kBps = <7216000>;
+				opp-supported-hw = <0xf>;
+			};
+
+			opp-355000000 {
+				opp-hz = /bits/ 64 <355000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_SVS>;
+				opp-peak-kBps = <6220000>;
+				opp-supported-hw = <0xf>;
+			};
+
+			opp-267000000 {
+				opp-hz = /bits/ 64 <267000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+				opp-peak-kBps = <4068000>;
+				opp-supported-hw = <0xf>;
+			};
+
+			opp-180000000 {
+				opp-hz = /bits/ 64 <180000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
+				opp-peak-kBps = <1804000>;
+				opp-supported-hw = <0xf>;
+			};
+		};
+	};
+
+	gmu: gmu@506a000 {
+		compatible = "qcom,adreno-gmu-615.0", "qcom,adreno-gmu";
+
+		reg = <0 0x0506a000 0 0x30000>,
+		      <0 0x0b280000 0 0x10000>,
+		      <0 0x0b480000 0 0x10000>;
+		reg-names = "gmu", "gmu_pdc", "gmu_pdc_seq";
+
+		interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hfi", "gmu";
+
+		clocks = <&gpucc GPU_CC_CX_GMU_CLK>,
+			 <&gpucc GPU_CC_CXO_CLK>,
+			 <&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			 <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
+		clock-names = "gmu", "cxo", "axi", "memnoc";
+
+		power-domains = <&gpucc GPU_CX_GDSC>,
+				<&gpucc GPU_GX_GDSC>;
+		power-domain-names = "cx", "gx";
+
+		iommus = <&adreno_smmu 5>;
+
+		operating-points-v2 = <&gmu_opp_table>;
+
+		gmu_opp_table: opp-table {
+			compatible = "operating-points-v2";
+
+			opp-200000000 {
+				opp-hz = /bits/ 64 <200000000>;
+				opp-level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
+			};
+		};
+	};
+
+	gpucc: clock-controller@5090000 {
+		compatible = "qcom,sdm845-gpucc";
+		reg = <0 0x05090000 0 0x9000>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_GPU_GPLL0_CLK_SRC>,
+			 <&clock_gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+		clock-names = "bi_tcxo",
+			      "gcc_gpu_gpll0_clk_src",
+			      "gcc_gpu_gpll0_div_clk_src";
+	};
+};
+
+/* GPU speed-bin fuse cell. */
+&qfprom {
+	gpu_speed_bin: gpu-speed-bin@1a2 {
+		reg = <0x1a2 0x2>;
+		bits = <5 8>;
+	};
+};
+
+/* Display rails pinned to fixed panel-required voltages so enabling is
+ * enough: the DSI host and PHY drivers regulate by enable only. */
+&pm660_l1 {
+	regulator-min-microvolt = <1200000>;
+	regulator-max-microvolt = <1200000>;
+};
+
+&pm660l_l1 {
+	regulator-min-microvolt = <880000>;
+	regulator-max-microvolt = <880000>;
+};
+
+&pm660l_l6 {
+	regulator-min-microvolt = <3008000>;
+	regulator-max-microvolt = <3008000>;
+};

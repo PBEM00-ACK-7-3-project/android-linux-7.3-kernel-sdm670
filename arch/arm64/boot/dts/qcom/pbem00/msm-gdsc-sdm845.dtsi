@@ -179,43 +179,7 @@
 		status = "disabled";
 	};
 
-	/* GDSCs in Display CC */
-	mdss_core_gdsc: qcom,gdsc@0xaf03000 {
-		compatible = "qcom,gdsc";
-		regulator-name = "mdss_core_gdsc";
-		reg = <0xaf03000 0x4>;
-		qcom,poll-cfg-gdscr;
-		qcom,support-hw-trigger;
-		status = "disabled";
-		proxy-supply = <&mdss_core_gdsc>;
-		qcom,proxy-consumer-enable;
-	};
-
 	/* GDSCs in Graphics CC */
-	gpu_cx_hw_ctrl: syscon@0x5091540 {
-		compatible = "syscon";
-		reg = <0x5091540 0x4>;
-	};
-
-	gpu_cx_gdsc: qcom,gdsc@0x509106c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gpu_cx_gdsc";
-		reg = <0x509106c 0x4>;
-		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		qcom,clk-dis-wait-val = <8>;
-		status = "disabled";
-	};
-
-	gpu_gx_gdsc: qcom,gdsc@0x509100c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gpu_gx_gdsc";
-		reg = <0x509100c 0x4>;
-		qcom,poll-cfg-gdscr;
-		status = "disabled";
-	};
-
 	/* GDSCs in Video CC */
 	vcodec0_gdsc: qcom,gdsc@0xab00874 {
 		compatible = "qcom,gdsc";

@@ -404,14 +404,6 @@
 				type = "passive";
 			};
 		};
-		cooling-maps {
-			gpu_cdev0 {
-				trip = <&gpu_trip0>;
-				cooling-device =
-					<&msm_gpu THERMAL_NO_LIMIT
-						THERMAL_NO_LIMIT>;
-			};
-		};
 	};
 
 	hexa-silv-max-step {
@@ -495,12 +487,6 @@
 				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
 							(THERMAL_MAX_LIMIT-8)>;
 			};
-			gpu_vdd_cdev {
-				trip = <&aoss0_trip>;
-				/* Vote for SVS_L1 for GPU */
-				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
-							(THERMAL_MAX_LIMIT-3)>;
-			};
 			cx_vdd_cdev {
 				trip = <&aoss0_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -547,12 +533,6 @@
 				trip = <&aoss1_trip>;
 				cooling-device = <&CPU6 (THERMAL_MAX_LIMIT-8)
 							(THERMAL_MAX_LIMIT-8)>;
-			};
-			gpu_vdd_cdev {
-				trip = <&aoss1_trip>;
-				/* Vote for SVS_L1 for GPU */
-				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
-							(THERMAL_MAX_LIMIT-3)>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss1_trip>;
