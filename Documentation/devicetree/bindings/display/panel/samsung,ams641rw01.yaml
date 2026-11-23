@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$schema: http://devicetree.org/schemas/display/panel/samsung,ams641rw01.yaml#
+
+title: Samsung AMS641RW01 1080x2340 AMOLED DSI command-mode panel
+
+maintainers:
+  - omajili-manbu
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: samsung,ams641rw01
+
+  reg:
+    maxItems: 1
+    description: DSI virtual channel of the panel.
+
+  reset-gpios:
+    maxItems: 1
+    description: Panel reset line, active low.
+
+  vddio-supply:
+    description: MIPI DSI I/O rail (1.8 V).
+
+  vdda-supply:
+    description: Panel analog rail (3.0 V).
+
+  peak-brightness:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      Static HDR peak luminance of the panel in 1/10000 nits, exposed to
+      userspace through the panel's hdr_static_metadata attribute.
+
+  color-primaries:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 8
+    maxItems: 8
+    description: |
+      Static HDR chromaticities in 1/10000 units, as eight values in
+      white-x, white-y, red-x, red-y, green-x, green-y, blue-x, blue-y
+      order.
+
+  backlight: true
+  port: true
+
+required:
+  - compatible
+  - reg
+  - reset-gpios
+  - vddio-supply
+  - vdda-supply
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "samsung,ams641rw01";
+            reg = <0>;
+
+            reset-gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
+            vddio-supply = <&pm660_l8>;
+            vdda-supply = <&pm660l_l6>;
+
+            peak-brightness = <4300000>;
+            color-primaries = <15000 15500 34000 16000
+                               13250 34500 7500 3000>;
+
+            port {
+                panel_in: endpoint {
+                    remote-endpoint = <&mdss_dsi0_out>;
+                };
+            };
+        };
+    };
+
+...
