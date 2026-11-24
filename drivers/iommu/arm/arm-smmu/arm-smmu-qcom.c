@@ -527,6 +527,22 @@ static int qcom_smmu_cfg_probe(struct arm_smmu_device *smmu)
 			smmu->s2crs[i].type = S2CR_TYPE_BYPASS;
 			smmu->s2crs[i].privcfg = S2CR_PRIVCFG_DEFAULT;
 			smmu->s2crs[i].cbndx = 0xff;
+
+			/*
+			 * With qcom,skip-init the bootloader leaves stream
+			 * mappings serving ongoing traffic through their own
+			 * context banks. Hide every context bank still
+			 * referenced by a live stream mapping from the kernel
+			 * allocator, so kernel domains never reprogram them.
+			 */
+			if (smmu->skip_init) {
+				u32 s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
+				u32 cbndx = FIELD_GET(ARM_SMMU_S2CR_CBNDX, s2cr);
+
+				if (FIELD_GET(ARM_SMMU_S2CR_TYPE, s2cr) == S2CR_TYPE_TRANS &&
+				    cbndx < smmu->num_context_banks &&
+				    !test_and_set_bit(cbndx, smmu->context_map))
+			}
 		}
 	}
 
