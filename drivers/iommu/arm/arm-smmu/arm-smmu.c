@@ -1716,7 +1716,8 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS)
 		reg |= ARM_SMMU_sCR0_EXIDENABLE;
 
-	if (!smmu->skip_init && smmu->impl && smmu->impl->reset)
+	if (smmu->impl && smmu->impl->reset &&
+	    (!smmu->skip_init || smmu->impl->reset_when_skip_init))
 		smmu->impl->reset(smmu);
 
 	/* Push the button */

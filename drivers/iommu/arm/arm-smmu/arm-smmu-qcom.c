@@ -609,7 +609,14 @@ static int qcom_sdm845_smmu500_reset(struct arm_smmu_device *smmu)
 {
 	int ret;
 
-	arm_mmu500_reset(smmu);
+	/*
+	 * With qcom,skip-init the MMU-500 CPRE/ACTLR programming is part of
+	 * the global reinitialization that must stay in bootloader hands;
+	 * only the wait-for-safe toggle below is safe, since it goes through
+	 * the secure monitor instead of rewriting SMMU registers.
+	 */
+	if (!smmu->skip_init)
+		arm_mmu500_reset(smmu);
 
 	/*
 	 * To address performance degradation in non-real time clients,
@@ -650,6 +657,7 @@ static const struct arm_smmu_impl sdm845_smmu_500_impl = {
 	.cfg_probe = qcom_smmu_cfg_probe,
 	.def_domain_type = qcom_smmu_def_domain_type,
 	.reset = qcom_sdm845_smmu500_reset,
+	.reset_when_skip_init = true,
 	.write_s2cr = qcom_smmu_write_s2cr,
 	.tlb_sync = qcom_smmu_tlb_sync,
 #ifdef CONFIG_ARM_SMMU_QCOM_DEBUG
@@ -768,6 +776,7 @@ static const struct of_device_id __maybe_unused qcom_smmu_impl_of_match[] = {
 	{ .compatible = "qcom,sc8280xp-smmu-500", .data = &qcom_smmu_500_impl0_data },
 	{ .compatible = "qcom,sdm630-smmu-v2", .data = &qcom_smmu_v2_data },
 	{ .compatible = "qcom,sdm670-smmu-v2", .data = &qcom_smmu_v2_data },
+	{ .compatible = "qcom,sdm670-smmu-500", .data = &sdm845_smmu_500_data },
 	{ .compatible = "qcom,sdm845-smmu-v2", .data = &qcom_smmu_v2_data },
 	{ .compatible = "qcom,sdm845-smmu-500", .data = &sdm845_smmu_500_data },
 	{ .compatible = "qcom,sm6115-smmu-500", .data = &qcom_smmu_500_impl0_data},
