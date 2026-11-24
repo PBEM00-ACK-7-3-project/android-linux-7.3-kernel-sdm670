@@ -16,7 +16,7 @@
 &soc {
 	apps_smmu: iommu@15000000 {
 		compatible = "qcom,sdm670-smmu-500", "qcom,smmu-500", "arm,mmu-500";
-		reg = <0 0x15000000 0 0x80000>;
+		reg = <0x15000000 0x80000>;
 		#iommu-cells = <2>;
 		#global-interrupts = <1>;
 		interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,

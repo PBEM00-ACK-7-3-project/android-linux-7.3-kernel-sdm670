@@ -112,7 +112,7 @@
 &soc {
 	mdss: display-subsystem@ae00000 {
 		compatible = "qcom,sdm670-mdss";
-		reg = <0 0x0ae00000 0 0x1000>;
+		reg = <0x0ae00000 0x1000>;
 		reg-names = "mdss";
 
 		power-domains = <&clock_dispcc MDSS_GDSC>;
@@ -385,7 +385,7 @@
 	/* The clock_dispcc label is kept because clock_debug references it. */
 	clock_dispcc: clock-controller@af00000 {
 		compatible = "qcom,sdm845-dispcc";
-		reg = <0 0x0af00000 0 0x10000>;
+		reg = <0x0af00000 0x10000>;
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			 <&clock_gcc GCC_DISP_GPLL0_CLK_SRC>,
 			 <&clock_gcc GCC_DISP_GPLL0_DIV_CLK_SRC>,
@@ -413,7 +413,7 @@
 	 * pil_gpu_mem region. */
 	adreno_smmu: iommu@5040000 {
 		compatible = "qcom,sdm670-smmu-v2", "qcom,adreno-smmu", "qcom,smmu-v2";
-		reg = <0 0x05040000 0 0x10000>;
+		reg = <0x05040000 0x10000>;
 		#iommu-cells = <1>;
 		#global-interrupts = <2>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
@@ -460,7 +460,7 @@
 	gpu: gpu@5000000 {
 		compatible = "qcom,adreno-615.0", "qcom,adreno";
 
-		reg = <0 0x05000000 0 0x40000>, <0 0x0509e000 0 0x10>;
+		reg = <0x05000000 0x40000>, <0x0509e000 0x10>;
 		reg-names = "kgsl_3d0_reg_memory", "cx_mem";
 
 		/*
@@ -568,9 +568,9 @@
 	gmu: gmu@506a000 {
 		compatible = "qcom,adreno-gmu-615.0", "qcom,adreno-gmu";
 
-		reg = <0 0x0506a000 0 0x30000>,
-		      <0 0x0b280000 0 0x10000>,
-		      <0 0x0b480000 0 0x10000>;
+		reg = <0x0506a000 0x30000>,
+		      <0x0b280000 0x10000>,
+		      <0x0b480000 0x10000>;
 		reg-names = "gmu", "gmu_pdc", "gmu_pdc_seq";
 
 		interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>,
@@ -603,7 +603,7 @@
 
 	gpucc: clock-controller@5090000 {
 		compatible = "qcom,sdm845-gpucc";
-		reg = <0 0x05090000 0 0x9000>;
+		reg = <0x05090000 0x9000>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 		#power-domain-cells = <1>;
