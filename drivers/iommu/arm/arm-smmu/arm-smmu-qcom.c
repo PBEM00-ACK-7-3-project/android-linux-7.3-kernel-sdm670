@@ -541,7 +541,20 @@ static int qcom_smmu_cfg_probe(struct arm_smmu_device *smmu)
 
 				if (FIELD_GET(ARM_SMMU_S2CR_TYPE, s2cr) == S2CR_TYPE_TRANS &&
 				    cbndx < smmu->num_context_banks &&
-				    !test_and_set_bit(cbndx, smmu->context_map))
+				    !test_and_set_bit(cbndx, smmu->context_map)) {
+					/*
+					 * Boot streams run untranslated (DMA
+					 * in physical addresses) through their
+					 * bootloader context banks; keep
+					 * stage-1 translation off.
+					 */
+					u32 sctlr = arm_smmu_cb_read(smmu, cbndx,
+								     ARM_SMMU_CB_SCTLR);
+
+					arm_smmu_cb_write(smmu, cbndx,
+							  ARM_SMMU_CB_SCTLR,
+							  sctlr & ~ARM_SMMU_SCTLR_M);
+				}
 			}
 		}
 	}
