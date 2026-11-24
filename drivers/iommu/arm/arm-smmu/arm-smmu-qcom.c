@@ -823,6 +823,14 @@ struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu)
 	}
 #endif
 
+	/*
+	 * QCOM qsmmu-v500 variants (sdm670/sdm845 family) boot with the
+	 * global SMMU state established by the bootloader; a kernel-side
+	 * reinit breaks unmatched-stream masters such as UFS. Keep that
+	 * state when the property requests it.
+	 */
+	smmu->skip_init = of_property_read_bool(np, "qcom,skip-init");
+
 	match = of_match_node(qcom_smmu_impl_of_match, np);
 	if (match)
 		return qcom_smmu_create(smmu, match->data);

@@ -1657,7 +1657,6 @@ static const struct iommu_ops arm_smmu_ops = {
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 {
-	int i;
 	u32 reg;
 
 	/* clear global FSR */
@@ -1666,15 +1665,23 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	/*
 	 * Reset stream mapping groups: Initial values mark all SMRn as
-	 * invalid and all S2CRn as bypass unless overridden.
+	 * invalid and all S2CRn as bypass unless overridden. With skip_init,
+	 * keep the bootloader-established global state instead: rewriting
+	 * SMRs/S2CRs/context banks breaks unmatched-stream masters such as
+	 * UFS on QCOM qsmmu-v500 variants. Streams and context banks are
+	 * still programmed per device on attach.
 	 */
-	for (i = 0; i < smmu->num_mapping_groups; ++i)
-		arm_smmu_write_sme(smmu, i);
+	if (!smmu->skip_init) {
+		int i;
 
-	/* Make sure all context banks are disabled and clear CB_FSR  */
-	for (i = 0; i < smmu->num_context_banks; ++i) {
-		arm_smmu_write_context_bank(smmu, i);
-		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_CB_FSR_FAULT);
+		for (i = 0; i < smmu->num_mapping_groups; ++i)
+			arm_smmu_write_sme(smmu, i);
+
+		/* Make sure all context banks are disabled and clear CB_FSR  */
+		for (i = 0; i < smmu->num_context_banks; ++i) {
+			arm_smmu_write_context_bank(smmu, i);
+			arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_CB_FSR_FAULT);
+		}
 	}
 
 	/* Invalidate the TLB, just in case */
@@ -1709,7 +1716,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS)
 		reg |= ARM_SMMU_sCR0_EXIDENABLE;
 
-	if (smmu->impl && smmu->impl->reset)
+	if (!smmu->skip_init && smmu->impl && smmu->impl->reset)
 		smmu->impl->reset(smmu);
 
 	/* Push the button */

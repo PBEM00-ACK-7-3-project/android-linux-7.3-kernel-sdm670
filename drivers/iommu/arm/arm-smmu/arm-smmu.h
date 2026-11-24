@@ -338,6 +338,12 @@ struct arm_smmu_device {
 
 	spinlock_t			global_sync_lock;
 
+	/*
+	 * Skip the global SMR/S2CR/context-bank reinit in device_reset;
+	 * trust the bootloader-established state (QCOM qcom,skip-init).
+	 */
+	bool				skip_init;
+
 	/* IOMMU core code handle */
 	struct iommu_device		iommu;
 };
