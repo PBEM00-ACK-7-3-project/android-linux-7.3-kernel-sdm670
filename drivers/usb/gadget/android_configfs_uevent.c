@@ -234,11 +234,18 @@ static void __android_set_connected(struct android_uevent_opts *opts,
 	unsigned long flags;
 
 	spin_lock_irqsave(&opts_lock, flags);
+	// Skip gadget drivers that never went through android_device_create()
+	// (e.g. legacy composite gadgets): their work is uninitialized and
+	// queueing it trips the double-queue check in __queue_work().
+	// Same liveness rule as android_work().
+	if (!opts->dev)
+		goto out;
 	// Don't send the uevent if connected state is not changed
 	if (opts->connected != connected) {
 		opts->connected = connected;
 		schedule_work(&opts->work);
 	}
+out:
 	spin_unlock_irqrestore(&opts_lock, flags);
 }
 
@@ -248,11 +255,14 @@ static void __android_set_configured(struct android_uevent_opts *opts,
 	unsigned long flags;
 
 	spin_lock_irqsave(&opts_lock, flags);
+	if (!opts->dev)
+		goto out;
 	// Don't send the uevent if configure state is not changed
 	if (opts->configured != configured) {
 		opts->configured = configured;
 		schedule_work(&opts->work);
 	}
+out:
 	spin_unlock_irqrestore(&opts_lock, flags);
 }
 
