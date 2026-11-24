@@ -83,8 +83,12 @@
 			     <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
+				     <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
 		dma-coherent;
+		/* qsmmu-v500 variant: XBL establishes the global SMMU state;
+		 * a kernel-side reinit breaks unmatched-stream masters (UFS).
+		 * Keep the bootloader state, streams are programmed on attach. */
+		qcom,skip-init;
 	};
 
 	kgsl_iommu_test_device {
