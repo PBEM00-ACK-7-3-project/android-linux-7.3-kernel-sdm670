@@ -1178,9 +1178,13 @@ static int rpmhpd_probe(struct platform_device *pdev)
 		 * issuing ARC rpmh votes (observed death: tcs claim addr=0x30010
 		 * right after the sweep at 4.19s, machine gone before the ACK).
 		 * Stock 4.9 never drops ARC rails at boot (no genpd framework);
-		 * keep the same behavior until real consumers attach. */
+		 * keep the same behavior until real consumers attach.
+		 *
+		 * The rails are up at handover, so the initial state must be
+		 * "on": an always-on domain that starts out off is rejected by
+		 * pm_genpd_init(), which leaves the whole provider unregistered. */
 		rpmhpds[i]->pd.flags |= GENPD_FLAG_ALWAYS_ON;
-		pm_genpd_init(&rpmhpds[i]->pd, NULL, true);
+		pm_genpd_init(&rpmhpds[i]->pd, NULL, false);
 
 		data->domains[i] = &rpmhpds[i]->pd;
 	}
