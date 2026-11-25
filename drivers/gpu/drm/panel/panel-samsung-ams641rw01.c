@@ -863,12 +863,12 @@ static int ams641rw01_probe(struct mipi_dsi_device *dsi)
 	mutex_init(&ctx->lock);
 	INIT_DELAYED_WORK(&ctx->esd_work, ams641rw01_esd_work);
 
+	ctx->dsi = dsi;
+	mipi_dsi_set_drvdata(dsi, ctx);
+
 	ret = ams641rw01_parse_hdr(ctx);
 	if (ret)
 		return ret;
-
-	ctx->dsi = dsi;
-	mipi_dsi_set_drvdata(dsi, ctx);
 
 	/* Command mode panel: refresh is TE-gated by the DPU and the link
 	 *  runs DCS transfers over HS, so no video-mode flags.
