@@ -705,6 +705,7 @@ CONFIG_PSTORE=y
 CONFIG_PSTORE_CONSOLE=y
 CONFIG_PSTORE_PMSG=y
 CONFIG_PSTORE_RAM=y
+# CONFIG_PSTORE_COMPRESS is not set
 CONFIG_EROFS_FS=y
 CONFIG_EROFS_FS_PCPU_KTHREAD=y
 CONFIG_NLS_CODEPAGE_437=y
@@ -851,7 +852,7 @@ CONFIG_DMABUF_HEAPS_CMA=y
 CONFIG_CHR_DEV_SG=y
 CONFIG_NVMEM_QCOM_QFPROM=y
 
-# === PBEM00 in-tree driver set ===
+# === in-tree driver set ===
 # Drivers built into this image for the SDM670 display/GPU/interconnect
 # stack; without them the corresponding code is not built at all.
 CONFIG_DEVTMPFS=y
@@ -983,3 +984,10 @@ CONFIG_PHY_QCOM_QUSB2=y
 CONFIG_INTERCONNECT_QCOM_SDM670=y
 CONFIG_DEBUG_WW_MUTEX_SLOWPATH=y
 CONFIG_DEBUG_RWSEMS=y
+
+# === drivers kept disabled ===
+# QCOM_TSENS: the tsens nodes in the device tree carry a compatible string
+# that no driver in this tree matches. ARM_QCOM_CPUFREQ_NVMEM: the driver
+# only supports legacy IPQ and APQ platforms.
+# CONFIG_QCOM_TSENS is not set
+# CONFIG_ARM_QCOM_CPUFREQ_NVMEM is not set
