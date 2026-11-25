@@ -1098,13 +1098,6 @@
 		mbox-names = "aop";
 	};
 
-	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,rpmh-clk-sdm670";
-		#clock-cells = <1>;
-		mboxes = <&apps_rsc 0>;
-		mbox-names = "apps";
-	};
-
 	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,gcc-sdm670", "syscon";
 		reg = <0x100000 0x1f0000>;
@@ -1820,7 +1813,7 @@
 			compatible = "qcom,bcm-voter";
 		};
 
-		rpmhcc: clock-controller {
+		clock_rpmh: rpmhcc: clock-controller {
 			compatible = "qcom,sdm670-rpmh-clk";
 			#clock-cells = <1>;
 			clock-names = "xo";
