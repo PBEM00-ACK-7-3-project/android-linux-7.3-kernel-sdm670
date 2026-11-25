@@ -883,6 +883,7 @@ static int ams641rw01_probe(struct mipi_dsi_device *dsi)
 	if (IS_ERR(ctx->panel.backlight))
 		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
 				     "failed to create backlight\n");
+	ctx->backlight = ctx->panel.backlight;
 
 	ret = sysfs_create_groups(&dsi->dev.kobj, ams641rw01_groups);
 	if (ret)
